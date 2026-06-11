@@ -1,0 +1,192 @@
+[2m18:00:25[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:02:16[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:02:38[22m [31m[1m[vite][22m[39m Pre-transform error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:421:8: ERROR: "await" can only be used inside an "async" function
+[2m18:02:38[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:421:8: ERROR: "await" can only be used inside an "async" function[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mD:/数字分身/frontend/src/components/ChatWindow.ts[39m:421:8
+[33m  
+  [33m"await" can only be used inside an "async" function[33m
+  419|        };
+  420|        if (files.length) {
+  421|          await streamUploadChat(message, sessionId, files, callbacks, abortCtrl.signal, chatMode);
+     |          ^
+  422|        } else {
+  423|          await streamChat(message, sessionId, callbacks, abortCtrl.signal, chatMode);
+  [39m
+      at failureErrorWithLog (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:1472:15)
+      at D:\数字分身\frontend\node_modules\esbuild\lib\main.js:755:50
+      at responseCallbacks.<computed> (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:622:9)
+      at handleIncomingPacket (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:677:12)
+      at Socket.readFromStdout (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:600:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m18:06:00[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:421:8: ERROR: "await" can only be used inside an "async" function[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mD:/数字分身/frontend/src/components/ChatWindow.ts[39m:421:8
+[33m  
+  [33m"await" can only be used inside an "async" function[33m
+  419|        };
+  420|        if (files.length) {
+  421|          await streamUploadChat(message, sessionId, files, callbacks, abortCtrl.signal, chatMode);
+     |          ^
+  422|        } else {
+  423|          await streamChat(message, sessionId, callbacks, abortCtrl.signal, chatMode);
+  [39m
+      at failureErrorWithLog (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:1472:15)
+      at D:\数字分身\frontend\node_modules\esbuild\lib\main.js:755:50
+      at responseCallbacks.<computed> (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:622:9)
+      at handleIncomingPacket (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:677:12)
+      at Socket.readFromStdout (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:600:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m18:09:53[22m [31m[1m[vite][22m[39m Pre-transform error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal
+[2m18:09:53[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mD:/数字分身/frontend/src/components/ChatWindow.ts[39m:141:49
+[33m  
+  [33mUnterminated string literal[33m
+  140|        if (_inputEl) {
+  141|          _inputEl.value = w.start + '鍒? + w.end;
+  142|        }
+     |   ^
+  143|        _doSend?.();
+  144|      });
+  [39m
+      at failureErrorWithLog (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:1472:15)
+      at D:\数字分身\frontend\node_modules\esbuild\lib\main.js:755:50
+      at responseCallbacks.<computed> (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:622:9)
+      at handleIncomingPacket (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:677:12)
+      at Socket.readFromStdout (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:600:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m18:10:04[22m [31m[1m[vite][22m[39m Pre-transform error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal
+[2m18:10:05[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mD:/数字分身/frontend/src/components/ChatWindow.ts[39m:141:49
+[33m  
+  [33mUnterminated string literal[33m
+  140|        if (_inputEl) {
+  141|          _inputEl.value = w.start + '鍒? + w.end;
+  142|        }
+     |   ^
+  143|        _doSend?.();
+  144|      });
+  [39m
+      at failureErrorWithLog (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:1472:15)
+      at D:\数字分身\frontend\node_modules\esbuild\lib\main.js:755:50
+      at responseCallbacks.<computed> (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:622:9)
+      at handleIncomingPacket (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:677:12)
+      at Socket.readFromStdout (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:600:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m18:10:45[22m [31m[1m[vite][22m[39m Pre-transform error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal
+[2m18:10:45[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+D:/数字分身/frontend/src/components/ChatWindow.ts:141:49: ERROR: Unterminated string literal[39m
+  Plugin: [35mvite:esbuild[39m
+  File: [36mD:/数字分身/frontend/src/components/ChatWindow.ts[39m:141:49
+[33m  
+  [33mUnterminated string literal[33m
+  140|        if (_inputEl) {
+  141|          _inputEl.value = w.start + '鍒? + w.end;
+  142|        }
+     |   ^
+  143|        _doSend?.();
+  144|      });
+  [39m
+      at failureErrorWithLog (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:1472:15)
+      at D:\数字分身\frontend\node_modules\esbuild\lib\main.js:755:50
+      at responseCallbacks.<computed> (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:622:9)
+      at handleIncomingPacket (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:677:12)
+      at Socket.readFromStdout (D:\数字分身\frontend\node_modules\esbuild\lib\main.js:600:7)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+[2m18:15:17[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:15:57[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:18:47[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/stats[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:37:30[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/stats[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m18:38:53[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/skills/list[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m11:16:03[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: read ECONNRESET
+    at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+[2m11:23:44[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m11:24:01[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/chat/stream[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m11:24:10[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/stats[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m11:24:11[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/skills/list[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:32:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/stats[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:32:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:32:19[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/imported[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:32:22[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/preview[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:38[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/sessions[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:40[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/stats[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:40[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/status[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:40[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/imported[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:41[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/preview[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:39:45[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/knowledge/feishu/preview[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)
+[2m08:41:20[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/chat/stream[39m
+Error: connect ECONNREFUSED 127.0.0.1:8001
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16)

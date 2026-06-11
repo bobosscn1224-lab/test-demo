@@ -1,0 +1,43 @@
+INFO:     Started server process [18372]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\Lib\site-packages\jieba\_compat.py:18: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+Building prefix dict from the default dictionary ...
+Loading model from cache C:\Users\Lenovo\AppData\Local\Temp\jieba.cache
+Loading model cost 1.392 seconds.
+Prefix dict has been built successfully.
+No text extracted from D:\数字分身\本地知识库\资料\线索精细化管理橙皮书2024版.pdf
+No text extracted from D:\数字分身\本地知识库\资料\大中型企业CRM应用与选型指南.pdf
+No text extracted from D:\数字分身\本地知识库\资料\纷享AI+CRM橙皮书2024版.pdf
+No text extracted from D:\数字分身\本地知识库\资料\如何落地ToB营销自动化.pdf
+No text extracted from D:\数字分身\本地知识库\知识星球\华为LTC销售流程体系全景：从“英雄式销售”到“组织化作战”.pdf
+No text extracted from D:\数字分身\本地知识库\backup0331\Process_Discipline_2026.pdf
+No text extracted from D:\数字分身\本地知识库\backup0331\奠基到加速流程管理战略.pdf
+SiliconFlow embedding API error 400: {"code":20015,"message":"The parameter is invalid. Please check again.","data":null}
+Batch embedding failed for 十五五规划.docx, falling back to single-chunk encoding
+SiliconFlow embedding API error 400: {"code":20015,"message":"The parameter is invalid. Please check again.","data":null}
+Skipping chunk (embedding failed): 拓展优势、破除瓶颈制约、补强短板弱项，在激烈国际竞争中赢得战略主动，推动事关中国式现代化全局的战略任务取得重大突破，为基本实现社会主义现代化奠定更加坚实的基础。
+（3）“十五五”时期我国发展环境面临深...
+No text extracted from D:\数字分身\本地知识库\相关文档\100+流程管理体系构建与落地+.pdf
+No text extracted from D:\数字分身\本地知识库\backup0331\项目调研.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\线索管理.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\周报.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\SCE开题.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\周报细节.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\N和T专项.jpg
+No text extracted from D:\数字分身\本地知识库\backup0331\Planning process.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\流程管理.png
+No text extracted from D:\数字分身\本地知识库\backup0527\自工序2.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\立项.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\漏斗1.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\流程价值.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\分级.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\价格.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\模版风格.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\数据1.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\N和T专项进展.png
+No text extracted from D:\数字分身\本地知识库\backup0527\价格管理.png
+No text extracted from D:\数字分身\本地知识库\backup0527\MO.jpg
+No text extracted from D:\数字分身\本地知识库\backup0527\issue.jpg

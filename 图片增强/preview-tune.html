@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>做准 N 和 T 专项项目阶段性汇报</title>
+<style>
+  :root{
+    --blue:#0a4a9f;
+    --blue2:#0f65c6;
+    --navy:#063b86;
+    --light-blue:#eaf3ff;
+    --green:#2f9b55;
+    --green-bg:#edf8ef;
+    --orange:#f2852a;
+    --orange-bg:#fff2e7;
+    --purple:#7d62c8;
+    --purple-bg:#f4efff;
+    --border:#cbd9ea;
+    --text:#25364d;
+    --muted:#5e6d80;
+    --bg:#f7fbff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9eef5;font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;color:var(--text)}
+  .page{width:1024px;min-height:1536px;margin:0 auto;background:linear-gradient(180deg,#fff 0%,#f8fbff 100%);position:relative;padding:18px 16px 14px;box-shadow:0 0 26px rgba(0,0,0,.18);overflow:hidden}
+  .page:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 5%,rgba(32,111,207,.06),transparent 22%),repeating-linear-gradient(-18deg,rgba(0,0,0,.018) 0 1px,transparent 1px 50px);pointer-events:none}
+  .content{position:relative;z-index:1}
+  header{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid var(--navy);padding:0 12px 12px 18px}
+  h1{margin:0;color:#082d6b;font-size:36px;letter-spacing:7px;font-weight:800;line-height:1.18}
+  .subtitle{font-size:13.5px;line-height:1.65;color:#27384f;width:760px;margin-top:8px;letter-spacing:.5px}
+  .target{width:120px;height:120px;position:relative;margin-top:0}
+  .target .ring{position:absolute;border:8px solid #2f75cf;border-radius:50%;inset:18px;opacity:.95}.target .ring:before{content:"";position:absolute;inset:16px;border:7px solid #2f75cf;border-radius:50%}.target .ring:after{content:"";position:absolute;inset:37px;background:#2f75cf;border-radius:50%}.target .arrow{position:absolute;right:2px;top:10px;width:70px;height:13px;background:#2f75cf;transform:rotate(-45deg);border-radius:10px}.target .arrow:after{content:"";position:absolute;right:-10px;top:-9px;border-left:24px solid #2f75cf;border-top:15px solid transparent;border-bottom:15px solid transparent}
+  .section{margin-top:10px;border-top:2px solid var(--navy)}
+  .sec-title{height:32px;line-height:32px;margin-left:0;padding:0 28px 0 16px;color:#fff;font-weight:800;font-size:20px;letter-spacing:2px;background:linear-gradient(90deg,#073c8b 0%,#0b59b3 86%,transparent 86%);display:inline-block;min-width:330px;clip-path:polygon(0 0,96% 0,100% 100%,0% 100%)}
+  .box{border:1.5px solid var(--border);background:rgba(255,255,255,.92);border-radius:10px;box-shadow:0 4px 12px rgba(13,72,145,.06);padding:10px}
+  .row{display:grid;gap:8px}.two{grid-template-columns:1.03fr 1.97fr}.three{grid-template-columns:1fr 1fr 1fr}.four{grid-template-columns:repeat(4,1fr)}
+  .label{color:#0b4a9c;font-weight:800;font-size:16px;margin-bottom:6px}.para{font-size:13px;line-height:1.65}.small{font-size:12px;line-height:1.55}.mini{font-size:11px}.muted{color:var(--muted)}
+  .icon-circle{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#e9f2ff;color:#0b55b0;margin-right:6px;font-weight:800}.iconline{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .stage-wrap{display:flex;align-items:center;gap:10px;margin-top:6px}.stage{height:70px;border-radius:8px;border:1.5px solid #cddbea;padding:9px 10px;flex:1}.stage b{display:block;font-size:14px;margin-bottom:8px}.stage p{margin:0;font-size:12px;line-height:1.45}.stage:nth-child(1){background:#f3f8ff;color:#0b4a9c}.stage:nth-child(3){background:var(--green-bg);color:#21824b}.stage:nth-child(5){background:var(--orange-bg);color:#d66a13}.stage:nth-child(7){background:var(--purple-bg);color:#6c4cbc}.arrow-r{font-size:27px;color:#9eb1c8;font-weight:bold}.phase-note{margin-top:8px;border-radius:10px;background:#f7fbff;border:1px solid #d8e6f6;padding:8px 16px;font-size:13px;line-height:1.6}.phase-note b{color:#084fa9}
+  .process{display:grid;grid-template-columns:1fr 42px 1fr 42px 1fr;align-items:start;gap:8px}.proc-card{border:1px solid #d7e2f0;background:#fff;border-radius:8px;overflow:hidden}.proc-head{color:#fff;text-align:center;font-weight:800;padding:7px 0}.blueh{background:#1768c4}.greenh{background:#36925a}.orangeh{background:#f08528}.proc-body{padding:9px 14px;font-size:12px;line-height:1.7}.proc-body b{display:block;margin-bottom:4px}.support{margin-top:8px;display:flex;justify-content:space-between;border:1px solid #dce6f2;border-radius:8px;padding:7px 12px;background:#fff}.support span{font-size:12px;color:#0d4e9d;font-weight:700}.good-table{border-collapse:collapse;width:100%;font-size:12px}.good-table td{border:1px solid #d7e2f0;padding:7px}.good-table td:first-child{width:92px;color:#0b55b0;font-weight:800}.good-table .ic{width:24px;text-align:center;font-size:18px;color:#2673cf}
+  .cards4{display:grid;grid-template-columns:1fr 1fr 1fr 1.08fr;gap:8px}.action-card{height:176px}.action-card .title{font-size:15px;font-weight:800;margin-bottom:8px}.action-card:nth-child(1) .title{color:#0b4a9c}.action-card:nth-child(2) .title{color:#278d48}.action-card:nth-child(3) .title{color:#e67415}.action-card:nth-child(4) .title{color:#6d56bb}.num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#dcecff;color:#0c4ea4;font-size:11px;font-weight:800;margin-right:5px}.action-card ol{margin:0;padding:0;list-style:none}.action-card li{font-size:12px;line-height:1.55;margin-bottom:5px}.icons-row{display:flex;justify-content:space-around;margin-top:11px;color:#0e63c2;font-size:11px;text-align:center}.ico{font-size:22px;display:block;margin-bottom:2px}
+  .kpi-head{display:flex;align-items:center;gap:10px}.pill{background:#043e8f;color:#fff;border-radius:0 20px 20px 0;padding:4px 18px;font-size:12px}.charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.chart-card{height:270px}.chart-title{font-weight:800;font-size:15px;margin-bottom:2px}.chart-title.blue{color:#0a4a9f}.chart-title.green{color:#2d904b}.chart-title.orange{color:#e47113}.chart-sub{font-size:12px;font-weight:700;margin-bottom:6px}.chart-area{height:148px;border-left:1px solid #d6e2ef;border-bottom:1px solid #d6e2ef;position:relative;padding:8px 4px 0 30px;background:linear-gradient(to top,#eef5fd 0 1px,transparent 1px 25%)}.bars{display:flex;align-items:flex-end;justify-content:space-around;height:100%;gap:12px}.bargrp{display:flex;align-items:flex-end;gap:7px;height:100%;position:relative}.bar{width:22px;background:#8ab8ed;border-radius:2px 2px 0 0;position:relative}.bar.dark{background:#0b55b0}.bar span{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800}.xlabels{display:flex;justify-content:space-around;font-size:11px;margin-left:26px;margin-top:4px}.legend{display:flex;gap:18px;justify-content:center;font-size:11px;margin-bottom:4px}.leg:before{content:"";display:inline-block;width:12px;height:8px;background:#8ab8ed;margin-right:4px}.leg.dark:before{background:#0b55b0}.unit{text-align:right;font-size:10px;color:#555}.conclusion{margin-top:8px;background:#fff7e9;border:1px solid #f2d6aa;border-radius:6px;padding:8px;font-size:12px;line-height:1.5}.star{color:#f2a200;font-size:16px;font-weight:800}.bottom{display:grid;grid-template-columns:1fr 1.05fr 1fr;gap:8px}.issue-list,.solution-list,.ask-list{font-size:12px;line-height:1.56}.issue-row,.solution-row,.ask-row{display:grid;grid-template-columns:78px 1fr;border-bottom:1px solid #e2eaf4;padding:5px 0;min-height:30px}.issue-row:last-child,.solution-row:last-child,.ask-row:last-child{border-bottom:0}.issue-row b,.solution-row b,.ask-row b{color:#0b55b0}.solution-row b{color:#278d48}.ask-row b{color:#0b55b0}.left-icon{display:inline-block;width:22px;color:#0b64c4;font-size:17px;text-align:center;margin-right:4px}.check{color:#389553;font-size:18px;margin-right:4px}.footer-note{position:absolute;bottom:8px;left:16px;right:16px;text-align:center;color:#8090a4;font-size:10px}.gap6{height:6px}
+  @media (max-width:1024px){.page{transform-origin:top left;box-shadow:none} body{background:#fff}}
+
+  /* Layout repair: fit the full infographic into 1024x1536 without text spilling out of cards. */
+  .page{
+    height:1536px;
+    min-height:1536px;
+    padding:14px 14px 10px;
+  }
+  header{
+    padding:0 8px 8px 16px;
+  }
+  h1{
+    font-size:34px;
+    letter-spacing:5px;
+    line-height:1.08;
+  }
+  .subtitle{
+    font-size:11.8px;
+    line-height:1.42;
+    width:765px;
+    margin-top:6px;
+  }
+  .target{
+    width:104px;
+    height:104px;
+    margin-top:0;
+  }
+  .target .ring{inset:15px;border-width:7px}
+  .target .ring:before{inset:14px;border-width:6px}
+  .target .ring:after{inset:32px}
+  .target .arrow{width:62px;height:11px;right:0;top:8px}
+  .section{
+    margin-top:7px;
+  }
+  .sec-title{
+    height:29px;
+    line-height:29px;
+    font-size:18px;
+    padding-left:15px;
+  }
+  .box{
+    padding:8px;
+    border-radius:9px;
+  }
+  .row{gap:7px}
+  .label{
+    font-size:14px;
+    margin-bottom:4px;
+  }
+  .para{
+    font-size:11.4px;
+    line-height:1.42;
+  }
+  .small{
+    font-size:10.8px;
+    line-height:1.36;
+  }
+  .mini{
+    font-size:9px;
+  }
+  .icon-circle{
+    width:20px;
+    height:20px;
+    font-size:12px;
+  }
+  .stage-wrap{
+    gap:7px;
+    margin-top:4px;
+  }
+  .stage{
+    height:78px;
+    padding:7px 8px;
+  }
+  .stage b{
+    font-size:12px;
+    margin-bottom:4px;
+  }
+  .stage p{
+    font-size:9.2px;
+    line-height:1.2;
+  }
+  .arrow-r{
+    font-size:22px;
+  }
+  .phase-note{
+    margin-top:6px;
+    padding:6px 12px;
+    font-size:10.8px;
+    line-height:1.35;
+  }
+  .process{
+    grid-template-columns:1fr 28px 1fr 28px 1fr;
+    gap:6px;
+  }
+  .proc-head{
+    padding:5px 0;
+    font-size:11px;
+  }
+  .proc-body{
+    padding:7px 10px;
+    font-size:9.6px;
+    line-height:1.34;
+  }
+  .support{
+    margin-top:6px;
+    padding:5px 10px;
+  }
+  .support span{
+    font-size:10px;
+  }
+  .good-table{
+    font-size:9.5px;
+  }
+  .good-table td{
+    padding:4px 5px;
+  }
+  .good-table td:first-child{
+    width:68px;
+  }
+  .good-table .ic{
+    width:18px;
+    font-size:14px;
+  }
+  .cards4{
+    gap:7px;
+  }
+  .action-card{
+    height:166px;
+    padding:7px 8px;
+    overflow:hidden;
+  }
+  .action-card .title{
+    font-size:11.6px;
+    line-height:1.18;
+    margin-bottom:4px;
+  }
+  .num{
+    width:14px;
+    height:14px;
+    font-size:8px;
+    margin-right:3px;
+    vertical-align:1px;
+  }
+  .action-card li{
+    font-size:8.2px;
+    line-height:1.24;
+    margin-bottom:2px;
+  }
+  .icons-row{
+    margin-top:4px;
+    font-size:8.2px;
+    line-height:1.1;
+  }
+  .ico{
+    font-size:14px;
+    margin-bottom:1px;
+  }
+  .charts{
+    gap:7px;
+  }
+  .chart-card{
+    height:224px;
+    padding:8px;
+    overflow:hidden;
+  }
+  .chart-title{
+    font-size:12.2px;
+    line-height:1.12;
+  }
+  .chart-sub{
+    font-size:9.8px;
+    line-height:1.18;
+    margin-bottom:3px;
+  }
+  .legend{
+    font-size:8.5px;
+    margin-bottom:2px;
+    gap:10px;
+  }
+  .chart-area{
+    height:108px;
+    padding:5px 3px 0 22px;
+  }
+  .bars{
+    gap:8px;
+  }
+  .bargrp{
+    gap:5px;
+  }
+  .bar{
+    width:17px;
+  }
+  .bar span{
+    top:-14px;
+    font-size:8px;
+  }
+  .xlabels{
+    font-size:8px;
+    margin-left:18px;
+    margin-top:2px;
+  }
+  .conclusion{
+    margin-top:4px;
+    padding:4px 5px;
+    font-size:8.5px;
+    line-height:1.25;
+  }
+  .star{
+    font-size:11px;
+  }
+  .bottom{
+    gap:7px;
+  }
+  .bottom .box{
+    padding:0 8px 6px;
+    min-height:178px;
+    overflow:hidden;
+  }
+  .issue-list,.solution-list,.ask-list{
+    font-size:8.8px;
+    line-height:1.22;
+  }
+  .issue-row,.solution-row,.ask-row{
+    grid-template-columns:58px 1fr;
+    min-height:0;
+    padding:3px 0;
+  }
+  .left-icon{
+    width:14px;
+    font-size:12px;
+  }
+  .check{
+    font-size:12px;
+  }
+  .footer-note{
+    display:none;
+  }
+
+  /* Fine tune per visual feedback. */
+  .row > .box,
+  .chart-card,
+  .bottom .box{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .row > .box .label{
+    flex:0 0 auto;
+  }
+  .row.two:first-of-type > .box{
+    min-height:124px;
+  }
+
+  /* Section 2: make the self-process flow closer to the reference image. */
+  .process{
+    align-items:center;
+    margin-top:10px !important;
+  }
+  .proc-card{
+    border:0;
+    background:transparent;
+    box-shadow:none;
+    overflow:visible;
+  }
+  .proc-head{
+    border-radius:6px;
+    height:31px;
+    padding:5px 0 0;
+    line-height:1.05;
+    box-shadow:0 1px 0 rgba(0,0,0,.08);
+  }
+  .proc-body{
+    margin-top:8px;
+    min-height:78px;
+    border:1.4px solid #bcd2ed;
+    background:#fbfdff;
+    border-radius:0;
+    padding:7px 11px;
+  }
+  .proc-body b{
+    display:block;
+    margin:-7px -11px 6px;
+    padding:3px 0;
+    color:#fff;
+    text-align:center;
+    font-size:10px;
+    line-height:1.1;
+  }
+  .process .proc-card:nth-child(1) .proc-body{border-color:#8bb9ee}
+  .process .proc-card:nth-child(1) .proc-body b{background:#1768c4}
+  .process .proc-card:nth-child(3) .proc-body{border-color:#8fcda3}
+  .process .proc-card:nth-child(3) .proc-body b{background:#36925a}
+  .process .proc-card:nth-child(5) .proc-body{border-color:#f6b479}
+  .process .proc-card:nth-child(5) .proc-body b{background:#f08528}
+  .process > .arrow-r{
+    align-self:center;
+    margin-top:0 !important;
+    color:#8fb0d4;
+  }
+
+  /* Core methods row: enlarge icons/text and add breathing room like the reference. */
+  .support{
+    align-items:center;
+    min-height:34px;
+    padding:8px 13px;
+    gap:10px;
+    line-height:1.4;
+  }
+  .support span{
+    font-size:11.2px;
+    line-height:1.35;
+    white-space:nowrap;
+  }
+  .support span:not(:first-child)::first-letter{
+    font-size:14px;
+  }
+
+  /* Section 4 ribbon must fully cover the long title. */
+  .kpi-head{
+    align-items:center;
+  }
+  .kpi-head .sec-title{
+    min-width:565px !important;
+    padding-right:42px;
+    background:linear-gradient(90deg,#073c8b 0%,#0b59b3 94%,transparent 94%);
+  }
+  .kpi-head .pill{
+    margin-left:-18px;
+    position:relative;
+    z-index:2;
+  }
+
+  /* Center chart titles and subtitles. */
+  .chart-title,
+  .chart-sub{
+    text-align:center;
+  }
+  .chart-sub{
+    min-height:24px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  /* Keep card content optically centered rather than pinned to top. */
+  .action-card{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .action-card ol{
+    flex:0 0 auto;
+  }
+  .action-card .icons-row{
+    flex:0 0 auto;
+  }
+  .bottom .sec-title{
+    flex:0 0 auto;
+  }
+  .issue-list,.solution-list,.ask-list{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <div class="content">
+      <header>
+        <div>
+          <h1>做准 N 和 T 专项项目阶段性汇报</h1>
+          <div class="subtitle">本次汇报聚焦 N 和 T 自工序专项项目阶段性成果，客观呈现执行优化动作后的指标结果，明确筛选能力边界；同步梳理核心卡点，对齐供应链端目标诉求与优化建议，申请领导对项目资源、目标合理性、跨部门协同的关注与支持。</div>
+        </div>
+        <div class="target"><div class="ring"></div><div class="arrow"></div></div>
+      </header>
+
+      <section class="section">
+        <div class="sec-title">一、项目背景与整体规划</div>
+        <div class="row two">
+          <div class="box">
+            <div class="label"><span class="icon-circle">❤</span>（一）项目启动动因</div>
+            <div class="para">销售漏斗中 <b>N（产品配置清单）</b> 和 <b>T（预计开标 / 下单 / 要货时间）</b> 信息录入不及时、不准确，导致后端供应链备货决策失误，出现库存积压、交付延迟、急单率居高不下等问题。专项旨在从源头提升漏斗质量，打通市场与供应链的信息壁垒。</div>
+          </div>
+          <div class="box">
+            <div class="label"><span class="icon-circle">⚙</span>（二）项目整体阶段规划</div>
+            <div class="stage-wrap">
+              <div class="stage"><b>◎ 定义标准</b><p>明确 N/T 标准及 3T 定义，搭建评分体系与核算逻辑</p></div><div class="arrow-r">→</div>
+              <div class="stage"><b>♜ 试点验证</b><p>试点区域 / 项目验证，优化流程与方案</p></div><div class="arrow-r">→</div>
+              <div class="stage"><b>🚀 全面推行</b><p>全区域推广落地，跨部门协同执行</p></div><div class="arrow-r">→</div>
+              <div class="stage"><b>✥ 迭代优化</b><p>持续复盘迭代，固化机制与能力提升</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="phase-note"><b>第一阶段：</b>聚焦 N 的可信度管控 + T 的定义拉通，完成 N 的配置清单评分体系搭建、IT 基础功能开发，统一 3T 核心定义与核算逻辑。<br><b>第二阶段：</b>聚焦 T 指标提升的核心抓手打造，通过流程优化、跨部门复盘、IT 深度开发，解决 T（下单 / 要货时间）准确率偏低的问题。</div>
+      </section>
+
+      <section class="section">
+        <div class="sec-title">二、通过自工序方法明确目标，分析识别业务问题</div>
+        <div class="row two" style="grid-template-columns:1.92fr 1fr;">
+          <div>
+            <div class="small"><b>业务逻辑：</b> 精准定义售后工序的边界与交付标准　　　　<b>做准 N 和 T 提升漏斗质量</b></div>
+            <div class="process" style="margin-top:8px">
+              <div class="proc-card"><div class="proc-head blueh">售前工序<br><span class="mini">漏斗外管理</span></div><div class="proc-body"><b>输入</b>• 项目信息录入<br>• 客户/需求信息<br>• 项目信息分析<br>• 漏斗配置/合评</div></div>
+              <div class="arrow-r" style="margin-top:54px">→</div>
+              <div class="proc-card"><div class="proc-head greenh">本工序<br><span class="mini">漏斗内管理</span></div><div class="proc-body"><b>加工</b>• N 可信度评分与动态校准<br>• 3T 信息管理（开标 / 下单 / 要货）<br>• 信息归档与更新<br>• 跨部门协同与复盘</div></div>
+              <div class="arrow-r" style="margin-top:54px">→</div>
+              <div class="proc-card"><div class="proc-head orangeh">后工序<br><span class="mini">交付与经营管理</span></div><div class="proc-body"><b>输出</b>• 供需精准对齐<br>• 备货计划优化<br>• 交付高效准确<br>• 客户满意度提升</div></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="label" style="text-align:center">要素分析 & 良品条件：要货时间</div>
+            <table class="good-table">
+              <tr><td class="ic">♦</td><td><b>核心指标</b></td><td>滚动三个月要货时间准确率 M0、M1、M2</td></tr>
+              <tr><td class="ic">◆</td><td><b>良品条件</b></td><td>信息及时准确、逻辑一致、协同顺畅</td></tr>
+              <tr><td class="ic">✹</td><td><b>关键要素</b></td><td>项目信息、客户需求、预算、交付计划、渠道协同</td></tr>
+              <tr><td class="ic">▲</td><td><b>不良表现</b></td><td>信息录入不及时 / 不准确、频繁变更、口径不一</td></tr>
+              <tr><td class="ic">▣</td><td><b>业务影响</b></td><td>库存积压、交付延迟、急单高、客户满意度下降</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="support"><span>核心方法与支撑：</span><span>▣ 自工序方法</span><span>◎ 流程梳理与分析</span><span>▤ A3 开题与复盘</span><span>▧ IT 系统支撑</span><span>♙ 跨部门协同机制</span></div>
+      </section>
+
+      <section class="section">
+        <div class="sec-title">三、对策制定与执行</div>
+        <div class="cards4">
+          <div class="box action-card"><div class="title">（一）N 端：搭建可信度评分体系</div><ol><li><span class="num">1</span>明确售前为 N 的第一责任人，取消销售自主配置清单并上传 CRM 权限；</li><li><span class="num">2</span>制定 N 可信度自评打分标准，四大维度评分，预算金额和产品系列均 ≥ 3 分方可分享；</li><li><span class="num">3</span>建立漏斗内 N 动态校准机制，根据预测类别和距离开标天数，设置最低可信度要求。</li></ol><div class="icons-row"><span><i class="ico">👥</i>责任明确</span><span><i class="ico">⚙</i>评分标准</span><span><i class="ico">↻</i>动态校准</span></div></div>
+          <div class="box action-card"><div class="title">（二）T 端：全周期管理体系</div><ol><li><span class="num">1</span>统一 3T 定义与核算逻辑，拉通全公司判断依据；</li><li><span class="num">2</span>落地 3 个月滚动预测管理（M0/M1/M2），分阶段校准；</li><li><span class="num">3</span>强化销售行为管理，3T 变化 24 小时内更新，协同渠道与商务。</li></ol><div class="icons-row" style="color:#2d914e"><span><i class="ico">↔</i>统一定义</span><span><i class="ico">▣</i>滚动管理</span><span><i class="ico">✓</i>行为标准化</span></div></div>
+          <div class="box action-card"><div class="title">（三）机制与协同</div><ol><li><span class="num">1</span>建立市场与供应链月度复盘机制，定位问题根因并制定改进措施；</li><li><span class="num">2</span>供应链前置 MO 介入重点项目，协同评估要货时间，提升备货交付有效性；</li><li><span class="num">3</span>组织市场与供应链会议，实现供需双向对齐，达成供需“握手”。</li></ol><div class="icons-row" style="color:#e77716"><span><i class="ico">▣</i>月度复盘</span><span><i class="ico">👥</i>前置协同</span><span><i class="ico">🤝</i>供需对齐</span></div></div>
+          <div class="box action-card"><div class="title">（四）IT 方案落地跟进</div><ol><li><span class="num">1</span>第一阶段：完成配置器、ECP 漏洞修复，上线 N 评分、3T 超期提醒、要货时间必填等功能；</li><li><span class="num">2</span>第二阶段：推进供应链 SLA 进配置器和 CRM、CES 渠道要货时间与推荐客期管理、分批要货功能、BI 看板等方案开发与落地。</li></ol><div class="icons-row" style="color:#7257c1"><span><i class="ico">⚙</i>系统升级</span><span><i class="ico">☁</i>功能开发</span><span><i class="ico">▭</i>数据看板</span></div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="kpi-head"><div class="sec-title" style="min-width:420px">四、阶段性指标结果：客观呈现当前能力边界</div><div class="pill">EBG 整体，含 2026 年新数据</div></div>
+        <div class="charts">
+          <div class="box chart-card"><div class="chart-title blue">（一）N - 下单项目清单准确率</div><div class="chart-sub blue">稳步提升，改善明显</div><div class="legend"><span class="leg">2025年</span><span class="leg dark">2026年</span><span>单位：%</span></div><div class="chart-area"><div class="bars"><div class="bargrp"><div class="bar" style="height:77%"><span>77%</span></div><div class="bar dark" style="height:90%"><span>90%</span></div></div><div class="bargrp"><div class="bar" style="height:71%"><span>71%</span></div><div class="bar dark" style="height:86%"><span>86%</span></div></div><div class="bargrp"><div class="bar" style="height:62%"><span>62%</span></div><div class="bar dark" style="height:79%"><span>79%</span></div></div></div></div><div class="xlabels"><span>M0（当月）</span><span>M1（隔月）</span><span>M2（隔二月）</span></div><div class="conclusion"><span class="star">★</span> <b>核心结论：</b> N 指标优化路径已验证有效，指标改善符合预期，当前水平为市场端可稳定达成的能力边界。</div></div>
+          <div class="box chart-card"><div class="chart-title green">（二）T - 下单时间准确率</div><div class="chart-sub green">准确率一直保持高位运行，全面达成一阶段目标</div><div class="legend"><span class="leg">2025年</span><span class="leg dark">2026年</span><span>单位：%</span></div><div class="chart-area"><div class="bars"><div class="bargrp"><div class="bar" style="height:95%"><span>95%</span></div><div class="bar dark" style="height:98%"><span>98%</span></div></div><div class="bargrp"><div class="bar" style="height:93%"><span>93%</span></div><div class="bar dark" style="height:97%"><span>97%</span></div></div><div class="bargrp"><div class="bar" style="height:90%"><span>90%</span></div><div class="bar dark" style="height:95%"><span>95%</span></div></div></div></div><div class="xlabels"><span>M0（当月）</span><span>M1（隔月）</span><span>M2（隔二月）</span></div><div class="conclusion"><span class="star" style="color:#2c9a50">★</span> <b>核心结论：</b> T 指标（下单时间）改善效果显著，整体达成阶段目标。</div></div>
+          <div class="box chart-card"><div class="chart-title orange">（三）T - 要货时间准确率</div><div class="chart-sub orange">M1、M2 有改善，长周期预测能力有待提升</div><div class="legend"><span class="leg">2025年</span><span class="leg dark">2026年</span><span>单位：%</span></div><div class="chart-area"><div class="bars"><div class="bargrp"><div class="bar" style="height:60%"><span>60%</span></div><div class="bar dark" style="height:70%"><span>70%</span></div></div><div class="bargrp"><div class="bar" style="height:55%"><span>55%</span></div><div class="bar dark" style="height:66%"><span>66%</span></div></div><div class="bargrp"><div class="bar" style="height:45%"><span>45%</span></div><div class="bar dark" style="height:53%"><span>53%</span></div></div></div></div><div class="xlabels"><span>M0（当月）</span><span>M1（隔月）</span><span>M2（隔二月）</span></div><div class="conclusion"><span class="star">★</span> <b>核心结论：</b> T 指标（要货时间）M0、M1 有改善，M2 改善不明显，仍需重点突破。</div></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="bottom">
+          <div class="box">
+            <div class="sec-title" style="min-width:260px;font-size:18px;height:30px;line-height:30px">五、核心问题与挑战</div>
+            <div class="issue-list">
+              <div class="issue-row"><b><span class="left-icon">▣</span>重视程度</b><span>区域重视程度不够，未形成足够的预测与业务交流重点。</span></div>
+              <div class="issue-row"><b><span class="left-icon">✥</span>业务特性</b><span>特殊项目周期长、需求不确定，预测方法尚未成熟。</span></div>
+              <div class="issue-row"><b><span class="left-icon">♙</span>跨部门协同</b><span>市场与供应链口径未完全对齐，渠道执行不可控，SLA 规则未完全落地。</span></div>
+              <div class="issue-row"><b><span class="left-icon">⌘</span>IT 系统支撑</b><span>分批要货、数据穿透、统一预测等能力尚未落地，缺乏实时监控工具。</span></div>
+              <div class="issue-row"><b><span class="left-icon">☁</span>客观因素</b><span>项目搁置、资金到位延迟、施工滞后、流标等不可控因素影响准确率。</span></div>
+              <div class="issue-row"><b><span class="left-icon">↗</span>管控机制</b><span>M-2 管控不成熟，缺乏标准、考核与复盘，远期预测随意性大。</span></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="sec-title" style="min-width:215px;font-size:18px;height:30px;line-height:30px">六、解决思路</div>
+            <div class="solution-list">
+              <div class="solution-row"><b><span class="check">✓</span>提升重视</b><span>重视培训 + 激励考核 + 定期复盘 + 成果固化到流程。</span></div>
+              <div class="solution-row"><b><span class="check">✓</span>方法沉淀</b><span>萃取复杂业务预测方法，供应链前置辅导重点项目。</span></div>
+              <div class="solution-row"><b><span class="check">✓</span>协同对齐</b><span>设计端到端销售预测管理机制，统一标准、定义和口径。</span></div>
+              <div class="solution-row"><b><span class="check">✓</span>IT 支撑</b><span>打通 CRM / ECP / CES 数据，解决分批要货，建立统一预测管理机制。</span></div>
+              <div class="solution-row"><b><span class="check">✓</span>客观应对</b><span>市场与供应链及时沟通，握手共识异常情况。</span></div>
+              <div class="solution-row"><b><span class="check">✓</span>机制完善</b><span>通过滚动三个月机制牵引，萃取优秀经验提升长期预测能力。</span></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="sec-title" style="min-width:270px;font-size:18px;height:30px;line-height:30px">七、诉求与待确认事项</div>
+            <div class="ask-list">
+              <div class="ask-row"><b><span class="left-icon">♜</span>目标合理性</b><span>讨论当前阶段目标合理性，结合业务现状调整目标。</span></div>
+              <div class="ask-row"><b><span class="left-icon">👥</span>资源支持</b><span>申请 IT 开发资源（分批要货、统一预测等），数据追踪看板等投入。</span></div>
+              <div class="ask-row"><b><span class="left-icon">♙</span>跨部门协同</b><span>请供应链端提供具体优化建议、统一口径、强化 SLA 与渠道协同。</span></div>
+              <div class="ask-row"><b><span class="left-icon">◆</span>机制固化</b><span>通过流程和方案固化到日常运营管理，确保效果持续。</span></div>
+              <div class="ask-row"><b><span class="left-icon">↗</span>价值论证</b><span>请给出业务价值、明确投入产出比，支持后续优化投入。</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="footer-note">N 和 T 自工序专项项目 · 阶段性汇报 HTML 复刻版</div>
+  </main>
+</body>
+</html>

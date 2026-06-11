@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分批要货计划工具</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+
+  .topbar { background: #1a1a2e; color: #fff; padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 32px; height: 32px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .sub { font-size: 12px; color: #8892a4; margin-top: 2px; }
+
+  .main { display: flex; height: calc(100vh - 56px); overflow: hidden; }
+
+  /* Left */
+  .panel-left { width: 260px; background: #fff; border-right: 1px solid #e8eaed; display: flex; flex-direction: column; flex-shrink: 0; }
+  .panel-header { padding: 14px 16px; border-bottom: 1px solid #f0f2f5; }
+  .panel-header h3 { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .search-box { position: relative; }
+  .search-box input { width: 100%; padding: 7px 10px 7px 28px; border: 1px solid #e0e3e8; border-radius: 6px; font-size: 13px; outline: none; }
+  .search-box input:focus { border-color: #667eea; }
+  .search-box .sico { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #bbb; }
+  .project-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .project-item { padding: 11px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; border: 2px solid transparent; transition: all 0.15s; }
+  .project-item:hover { background: #f8f9ff; }
+  .project-item.active { background: #f0f2ff; border-color: #667eea; }
+  .proj-name { font-size: 13px; font-weight: 600; color: #1a1a2e; margin-bottom: 3px; line-height: 1.4; }
+  .proj-meta { font-size: 11px; color: #8892a4; display: flex; gap: 6px; flex-wrap: wrap; }
+  .status-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; }
+  .s-active { background: #e8f5e9; color: #2e7d32; }
+  .s-plan { background: #fff3e0; color: #e65100; }
+  .s-closed { background: #f5f5f5; color: #9e9e9e; }
+  .s-done { background: #e8f5e9; color: #1b5e20; }
+  .s-partial { background: #e3f2fd; color: #1565c0; }
+  .s-pending { background: #f3e5f5; color: #6a1b9a; }
+
+  /* Center */
+  .panel-center { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .center-top { padding: 14px 20px; background: #fff; border-bottom: 1px solid #e8eaed; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .project-title { font-size: 17px; font-weight: 700; }
+  .project-subtitle { font-size: 12px; color: #8892a4; margin-top: 2px; }
+
+  .batch-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-content: flex-start; }
+
+  /* Batch card */
+  .batch-card { width: 100%; background: #fff; border-radius: 12px; border: 1px solid #e8eaed; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .batch-header { padding: 13px 14px; border-bottom: 1px solid #f0f2f5; display: flex; align-items: center; justify-content: space-between; }
+  .batch-title-row { display: flex; align-items: center; gap: 8px; }
+  .batch-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .batch-name { font-size: 14px; font-weight: 700; }
+  .batch-actions { display: flex; gap: 2px; }
+  .icon-btn { width: 26px; height: 26px; border: none; background: transparent; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #bbb; font-size: 13px; transition: all 0.15s; }
+  .icon-btn:hover { background: #f5f5f5; color: #555; }
+  .icon-btn.del:hover { background: #ffebee; color: #e53935; }
+
+  .batch-dates { padding: 10px 14px; background: #fafbff; border-bottom: 1px solid #f0f2f5; display: flex; gap: 10px; flex-wrap: wrap; }
+  .date-field { flex: 1; }
+  .date-label { font-size: 10px; color: #8892a4; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .date-input { width: 100%; padding: 5px 7px; border: 1px solid #e0e3e8; border-radius: 5px; font-size: 12px; outline: none; }
+  .date-input:focus { border-color: #667eea; }
+
+  .batch-products { padding: 10px 14px; min-height: 100px; }
+  .drop-zone { min-height: 72px; border: 2px dashed #e0e3e8; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .drop-zone.has-items { border: none; min-height: unset; display: block; }
+  .drop-zone.dragover { border-color: #667eea; background: #f0f2ff; }
+  .drop-hint { color: #ccc; font-size: 12px; text-align: center; }
+  .drop-hint span { font-size: 22px; display: block; margin-bottom: 4px; }
+
+  /* Product row in batch */
+  .bp-item { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 7px; background: #f8f9ff; margin-bottom: 5px; border: 1px solid #eaecf4; cursor: grab; transition: all 0.15s; }
+  .bp-item:hover { background: #f0f2ff; border-color: #c5cae9; }
+  .bp-item:active { cursor: grabbing; }
+  .bp-item.dragging { opacity: 0.3; }
+  .bp-item.qty-error { border-color: #ffcdd2; background: #fff5f5; }
+  .bp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .bp-name { flex: 1; font-size: 12px; font-weight: 500; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .bp-qty-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+  .qty-input { width: 52px; padding: 3px 5px; border: 1px solid #e0e3e8; border-radius: 4px; font-size: 12px; text-align: center; outline: none; transition: border-color 0.2s; }
+  .qty-input:focus { border-color: #667eea; }
+  .qty-input.over { border-color: #e53935; background: #fff0f0; color: #e53935; font-weight: 700; }
+  .bp-unit { font-size: 11px; color: #8892a4; }
+  .bp-remain { font-size: 10px; color: #43a047; background: #e8f5e9; padding: 1px 5px; border-radius: 8px; font-weight: 600; white-space: nowrap; }
+  .bp-remain.warn { color: #f57c00; background: #fff3e0; }
+  .bp-remain.zero { color: #e53935; background: #ffebee; }
+  .bp-remove { width: 18px; height: 18px; border: none; background: transparent; cursor: pointer; color: #ddd; font-size: 13px; display: flex; align-items: center; justify-content: center; border-radius: 3px; flex-shrink: 0; }
+  .bp-remove:hover { color: #e53935; background: #ffebee; }
+
+  .batch-footer { padding: 9px 14px; border-top: 1px solid #f0f2f5; display: flex; justify-content: space-between; align-items: center; }
+  .batch-stat { font-size: 11px; color: #8892a4; }
+  .batch-stat strong { color: #1a1a2e; }
+
+  /* Add batch */
+  .add-batch-card { width: 100%; border: 2px dashed #d5d9e8; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; min-height: 140px; transition: all 0.2s; color: #bbb; padding: 20px; text-align: center; }
+  .add-batch-card:hover { border-color: #667eea; color: #667eea; background: #f8f9ff; }
+
+  /* Summary bar */
+  .summary-bar { padding: 10px 20px; background: #fff; border-top: 1px solid #e8eaed; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+  .sum-item { display: flex; align-items: center; gap: 6px; }
+  .sum-label { font-size: 11px; color: #8892a4; }
+  .sum-value { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+  .sum-warn { color: #e53935; }
+
+  /* Right: Product Library */
+  .panel-right { width: 270px; background: #fff; border-left: 1px solid #e8eaed; display: flex; flex-direction: column; flex-shrink: 0; }
+  .prod-lib-header { padding: 14px 16px 10px; border-bottom: 1px solid #f0f2f5; }
+  .prod-lib-header h3 { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .prod-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+  /* Library product item */
+  .lib-item { border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; background: #fff; transition: all 0.15s; overflow: hidden; }
+  .lib-item-main { display: flex; align-items: center; gap: 8px; padding: 9px 10px; cursor: grab; }
+  .lib-item-main:hover { background: #f8f9ff; }
+  .lib-item-main:active { cursor: grabbing; }
+  .lib-item.dragging { opacity: 0.4; }
+  .lib-item.depleted .lib-item-main { cursor: not-allowed; opacity: 0.5; }
+  .lib-item.depleted .drag-handle { color: #e0e0e0; }
+  .drag-handle { color: #d0d0d0; font-size: 14px; }
+  .lib-info { flex: 1; min-width: 0; }
+  .lib-name { font-size: 12px; font-weight: 600; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-code { font-size: 10px; color: #bbb; margin-top: 1px; }
+  /* Quota bar inside library item */
+  .lib-quota { padding: 0 10px 8px; }
+  .quota-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .quota-label { font-size: 10px; color: #8892a4; }
+  .quota-nums { font-size: 11px; font-weight: 600; }
+  .quota-nums .q-total { color: #1a1a2e; }
+  .quota-nums .q-sep { color: #ccc; margin: 0 3px; }
+  .quota-nums .q-assigned { color: #667eea; }
+  .quota-nums .q-remain { color: #43a047; }
+  .quota-nums .q-remain.warn { color: #f57c00; }
+  .quota-nums .q-remain.zero { color: #e53935; }
+  .progress-bar { height: 5px; background: #f0f2f5; border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s, background 0.3s; }
+  .lib-qty-set { display: flex; align-items: center; gap: 6px; padding: 4px 10px 8px; border-top: 1px solid #f5f5f5; }
+  .lib-qty-label { font-size: 10px; color: #8892a4; flex: 1; }
+  .lib-total-input { width: 60px; padding: 3px 6px; border: 1px solid #e0e3e8; border-radius: 4px; font-size: 12px; text-align: center; outline: none; }
+  .lib-total-input:focus { border-color: #667eea; }
+
+  /* Btns */
+  .btn { padding: 7px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: #667eea; color: #fff; }
+  .btn-primary:hover { background: #5a6fd8; }
+  .btn-outline { background: #fff; color: #667eea; border: 1.5px solid #667eea; }
+  .btn-outline:hover { background: #f0f2ff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-group { display: flex; gap: 8px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .form-group { margin-bottom: 13px; }
+  .form-label { font-size: 12px; color: #666; font-weight: 600; margin-bottom: 5px; display: block; }
+  .form-input { width: 100%; padding: 8px 11px; border: 1px solid #e0e3e8; border-radius: 6px; font-size: 14px; outline: none; }
+  .form-input:focus { border-color: #667eea; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+  /* Empty */
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ccc; gap: 10px; }
+  .empty-state .eico { font-size: 48px; }
+  .empty-state p { font-size: 14px; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #e0e0e0; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">📦</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#fff;">分批要货计划</div>
+      <div class="sub">Sales Batch Planning Tool</div>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-outline" style="color:#8892a4;border-color:#3a3f5c;background:transparent;font-size:12px;" onclick="downloadTemplate()">📋 下载模版</button>
+    <button class="btn btn-outline" style="color:#8892a4;border-color:#3a3f5c;background:transparent;font-size:12px;" onclick="document.getElementById('xlsxFileInput').click()">📥 导入Excel</button>
+    <button class="btn btn-outline" style="color:#8892a4;border-color:#3a3f5c;background:transparent;font-size:12px;" onclick="exportExcel()">📤 导出Excel</button>
+    <button class="btn btn-primary" style="font-size:12px;" onclick="savePlan()">💾 保存</button>
+  </div>
+</div>
+<input type="file" id="xlsxFileInput" accept=".xlsx,.xls" style="display:none;" onchange="importExcel(this)">
+
+<div class="main">
+  <!-- Left: Projects -->
+  <div class="panel-left">
+    <div class="panel-header">
+      <h3>商机项目</h3>
+      <div class="search-box">
+        <span class="sico">🔍</span>
+        <input type="text" placeholder="搜索项目..." id="projectSearch" oninput="filterProjects()">
+      </div>
+    </div>
+    <div class="project-list" id="projectList"></div>
+  </div>
+
+  <!-- Center: Batch Plan -->
+  <div class="panel-center">
+    <div class="center-top">
+      <div id="projectTitleArea">
+        <div style="color:#bbb;font-size:15px;">请选择左侧项目</div>
+      </div>
+      <div class="btn-group" id="batchControls" style="display:none;">
+        <button class="btn btn-outline btn-sm" onclick="addBatch()">＋ 新增批次</button>
+        <button class="btn btn-primary btn-sm" onclick="autoSplit()">⚡ 均分</button>
+      </div>
+    </div>
+
+    <div class="batch-container" id="batchContainer">
+      <div class="empty-state">
+        <div class="eico">🗂️</div>
+        <p>选择一个商机项目开始规划</p>
+      </div>
+    </div>
+
+    <div class="summary-bar" id="summaryBar" style="display:none;">
+      <div class="sum-item"><span class="sum-label">批次数</span><span class="sum-value" id="sumBatches">0</span></div>
+      <div class="sum-item"><span class="sum-label">首批下单</span><span class="sum-value" id="sumFirstOrder">--</span></div>
+      <div class="sum-item"><span class="sum-label">末批到货</span><span class="sum-value" id="sumLastDelivery">--</span></div>
+      <div class="sum-item"><span class="sum-label">超量产品</span><span class="sum-value sum-warn" id="sumOverflow">0</span></div>
+    </div>
+  </div>
+
+  <!-- Right: Product Library -->
+  <div class="panel-right">
+    <div class="prod-lib-header">
+      <h3>产品配置清单</h3>
+      <div class="search-box">
+        <span class="sico">🔍</span>
+        <input type="text" placeholder="搜索产品..." id="prodSearch" oninput="filterProducts()">
+      </div>
+    </div>
+    <div class="prod-list" id="prodList"></div>
+  </div>
+</div>
+
+<!-- Batch Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;">
+  <div class="modal">
+    <h3 id="modalTitle">新增批次</h3>
+    <div class="form-group">
+      <label class="form-label">批次名称</label>
+      <input type="text" class="form-input" id="modalBatchName" placeholder="例如：第一批">
+    </div>
+    <div style="display:flex;gap:12px;">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">📋 下单时间</label>
+        <input type="date" class="form-input" id="modalOrderDate">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">🚚 要货时间</label>
+        <input type="date" class="form-input" id="modalDeliveryDate">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">备注</label>
+      <input type="text" class="form-input" id="modalRemark" placeholder="可选">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmModal()">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────────────────
+const COLORS = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#ff9800','#009688','#e91e63'];
+
+const PROJECTS = [
+  { id: 1, name: '华南区智慧园区项目', client: '深圳绿城集团', amount: '¥2,400万', status: 'active' },
+  { id: 2, name: '北京总部IT基础设施升级', client: '北京建工集团', amount: '¥860万', status: 'plan' },
+  { id: 3, name: '上海数据中心扩容', client: '上海申能股份', amount: '¥1,560万', status: 'active' },
+  { id: 4, name: '成都分公司网络改造', client: '成都天府新区管委', amount: '¥380万', status: 'plan' },
+  { id: 5, name: '广州智慧安防系统', client: '广州越秀集团', amount: '¥720万', status: 'closed' },
+];
+
+// Products now have a totalQty field (can be edited per-project)
+const PRODUCTS = [
+  { id: 'p1',  name: '服务器 PowerEdge R750',    code: 'SRV-R750',     unit: '台', color: '#667eea', defaultQty: 20  },
+  { id: 'p2',  name: '核心交换机 Nexus 9300',     code: 'SW-NX9300',    unit: '台', color: '#f093fb', defaultQty: 8   },
+  { id: 'p3',  name: '防火墙 PA-5220',            code: 'FW-PA5220',    unit: '套', color: '#4facfe', defaultQty: 4   },
+  { id: 'p4',  name: 'UPS 电源 APC 20kVA',       code: 'UPS-APC20K',   unit: '台', color: '#43e97b', defaultQty: 6   },
+  { id: 'p5',  name: '存储阵列 Unity XT 480',     code: 'STR-UNITY480', unit: '套', color: '#fa709a', defaultQty: 3   },
+  { id: 'p6',  name: '接入交换机 C9200L-48P',     code: 'SW-C9200',     unit: '台', color: '#ff9800', defaultQty: 100 },
+  { id: 'p7',  name: '无线AP WAX630',             code: 'AP-WAX630',    unit: '台', color: '#009688', defaultQty: 200 },
+  { id: 'p8',  name: '综合布线系统',              code: 'CAB-SYS',      unit: '套', color: '#795548', defaultQty: 2   },
+  { id: 'p9',  name: '视频监控 IPC-HFW2849S',     code: 'CAM-HFW2849',  unit: '台', color: '#607d8b', defaultQty: 60  },
+  { id: 'p10', name: '机柜 42U 标准',             code: 'RACK-42U',     unit: '台', color: '#e91e63', defaultQty: 12  },
+];
+
+let state = {
+  currentProject: null,
+  batches: {},       // { projectId: [batch,...] }
+  quotas: {},        // { projectId: { productId: totalQty } }
+  dragging: null,
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  renderProjectList();
+  renderProductLibrary();
+}
+
+// ─── Quota helpers ─────────────────────────────────────────────────────────────
+function getQuota(projId, prodId) {
+  if (!state.quotas[projId]) state.quotas[projId] = {};
+  if (state.quotas[projId][prodId] == null) {
+    const prod = PRODUCTS.find(p => p.id === prodId);
+    state.quotas[projId][prodId] = prod ? prod.defaultQty : 0;
+  }
+  return state.quotas[projId][prodId];
+}
+
+function setQuota(projId, prodId, val) {
+  if (!state.quotas[projId]) state.quotas[projId] = {};
+  state.quotas[projId][prodId] = Math.max(0, parseInt(val) || 0);
+}
+
+// How much of prodId is already allocated across all batches for projId
+function getAllocated(projId, prodId) {
+  const batches = state.batches[projId] || [];
+  return batches.reduce((sum, b) => {
+    const entry = b.products.find(p => p.productId === prodId);
+    return sum + (entry ? (parseInt(entry.qty) || 0) : 0);
+  }, 0);
+}
+
+function getRemaining(projId, prodId) {
+  return getQuota(projId, prodId) - getAllocated(projId, prodId);
+}
+
+// ─── Projects ─────────────────────────────────────────────────────────────────
+// Compute batch planning status for a project
+function getBatchStatus(projId) {
+  const batches = state.batches[projId] || [];
+  if (!batches.length) return { key: 'pending', label: '待分批', cls: 's-pending' };
+  // Check if all products are fully allocated (no remaining)
+  const totalRemain = PRODUCTS.reduce((sum, p) => sum + getRemaining(projId, p.id), 0);
+  const totalQuota  = PRODUCTS.reduce((sum, p) => sum + getQuota(projId, p.id), 0);
+  if (totalQuota > 0 && totalRemain <= 0) return { key: 'done', label: '已完成分批', cls: 's-done' };
+  return { key: 'partial', label: '分批中', cls: 's-partial' };
+}
+
+function renderProjectList(filter = '') {
+  const list = document.getElementById('projectList');
+  const items = PROJECTS.filter(p => p.name.includes(filter) || p.client.includes(filter));
+  list.innerHTML = items.map(p => {
+    const bCount = (state.batches[p.id] || []).length;
+    const bStat  = getBatchStatus(p.id);
+    return `
+    <div class="project-item ${state.currentProject?.id === p.id ? 'active' : ''}" onclick="selectProject(${p.id})">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:4px;">
+        <div class="proj-name">${p.name}</div>
+        <span class="status-badge ${bStat.cls}" style="flex-shrink:0;margin-top:2px;">${bStat.label}</span>
+      </div>
+      <div class="proj-meta"><span>👤 ${p.client}</span><span>💰 ${p.amount}</span></div>
+      ${bCount ? `<div style="margin-top:5px;font-size:10px;color:#667eea;font-weight:600;">已规划 ${bCount} 个批次</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function filterProjects() { renderProjectList(document.getElementById('projectSearch').value); }
+
+function selectProject(id) {
+  state.currentProject = PROJECTS.find(p => p.id === id);
+  if (!state.batches[id]) state.batches[id] = [];
+  renderProjectList(document.getElementById('projectSearch').value);
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+}
+
+// ─── Product Library ──────────────────────────────────────────────────────────
+function renderProductLibrary(filter = '') {
+  const list = document.getElementById('prodList');
+  const projId = state.currentProject?.id;
+  const items = PRODUCTS.filter(p => p.name.includes(filter) || p.code.includes(filter));
+  list.innerHTML = items.map(p => {
+    const total    = projId ? getQuota(projId, p.id) : p.defaultQty;
+    const assigned = projId ? getAllocated(projId, p.id) : 0;
+    const remain   = total - assigned;
+    const pct      = total > 0 ? Math.min(100, Math.round(assigned / total * 100)) : 0;
+    const fillColor = pct >= 100 ? '#e53935' : pct >= 75 ? '#f57c00' : '#667eea';
+    const remClass  = remain <= 0 ? 'zero' : remain <= total * 0.25 ? 'warn' : '';
+    const isDepleted = remain <= 0;
+    return `
+    <div class="lib-item ${isDepleted ? 'depleted' : ''}" id="lib-${p.id}">
+      <div class="lib-item-main" draggable="${isDepleted ? 'false' : 'true'}"
+           ondragstart="${isDepleted ? '' : `onLibDragStart(event,'${p.id}')`}"
+           ondragend="onDragEnd(event)">
+        <div class="drag-handle">⠿</div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+        <div class="lib-info">
+          <div class="lib-name">${p.name}</div>
+          <div class="lib-code">${p.code} · ${p.unit}${isDepleted ? ' · <span style="color:#e53935;font-weight:600;">已全部分配</span>' : ''}</div>
+        </div>
+      </div>
+      <div class="lib-qty-set">
+        <span class="lib-qty-label">合同总量</span>
+        <input type="number" class="lib-total-input" value="${total}" min="0"
+               onchange="onQuotaChange('${p.id}', this.value)"
+               onclick="event.stopPropagation()" title="设置该产品的合同总量">
+        <span style="font-size:11px;color:#8892a4;">${p.unit}</span>
+      </div>
+      <div class="lib-quota">
+        <div class="quota-row">
+          <span class="quota-label">分配进度</span>
+          <span class="quota-nums">
+            <span class="q-assigned">${assigned}</span>
+            <span class="q-sep">/</span>
+            <span class="q-total">${total}</span>
+            <span style="margin-left:6px;" class="q-remain ${remClass}">剩余 ${remain}</span>
+          </span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${pct}%;background:${fillColor};"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterProducts() { renderProductLibrary(document.getElementById('prodSearch').value); }
+
+function onQuotaChange(prodId, val) {
+  const projId = state.currentProject?.id;
+  if (!projId) return;
+  const newTotal = Math.max(0, parseInt(val) || 0);
+  const assigned = getAllocated(projId, prodId);
+  if (newTotal < assigned) {
+    showToast(`⚠️ 合同总量不能小于已分配量 ${assigned}`);
+    renderProductLibrary(document.getElementById('prodSearch').value);
+    return;
+  }
+  setQuota(projId, prodId, newTotal);
+  renderProductLibrary(document.getElementById('prodSearch').value);
+  renderBatchArea();
+}
+
+// ─── Batch Area ───────────────────────────────────────────────────────────────
+function renderBatchArea() {
+  const proj = state.currentProject;
+  if (!proj) return;
+
+  document.getElementById('projectTitleArea').innerHTML = `
+    <div class="project-title">${proj.name}</div>
+    <div class="project-subtitle">${proj.client} · ${proj.amount}</div>`;
+  document.getElementById('batchControls').style.display = 'flex';
+  document.getElementById('summaryBar').style.display = 'flex';
+
+  const batches = state.batches[proj.id] || [];
+  const container = document.getElementById('batchContainer');
+
+  let html = batches.map((b, i) => renderBatchCard(b, i)).join('');
+  html += `
+    <div class="add-batch-card" onclick="addBatch()">
+      <div style="font-size:28px;">＋</div>
+      <div style="font-size:13px;font-weight:600;">新增批次</div>
+      <div style="font-size:11px;color:#ccc;">点击创建，或从清单拖入产品</div>
+    </div>`;
+  container.innerHTML = html;
+  updateSummary();
+}
+
+function renderBatchCard(batch, index) {
+  const color = COLORS[index % COLORS.length];
+  const projId = state.currentProject.id;
+  const batchQtyTotal = batch.products.reduce((s, p) => s + (parseInt(p.qty) || 0), 0);
+
+  const productsHtml = batch.products.length === 0
+    ? `<div class="drop-zone" data-bid="${batch.id}"
+            ondragover="onBatchDragOver(event,'${batch.id}')"
+            ondragleave="onBatchDragLeave(event)"
+            ondrop="onBatchDrop(event,'${batch.id}')">
+         <div class="drop-hint"><span>📦</span>将产品从右侧拖入</div>
+       </div>`
+    : `<div class="drop-zone has-items" data-bid="${batch.id}"
+            ondragover="onBatchDragOver(event,'${batch.id}')"
+            ondragleave="onBatchDragLeave(event)"
+            ondrop="onBatchDrop(event,'${batch.id}')">
+         ${batch.products.map((p, pi) => renderBatchProduct(p, batch.id, pi, projId)).join('')}
+       </div>`;
+
+  return `
+  <div class="batch-card" id="batch-${batch.id}">
+    <div class="batch-header">
+      <div class="batch-title-row">
+        <div class="batch-dot" style="background:${color}"></div>
+        <div class="batch-name">${batch.name}</div>
+      </div>
+      <div class="batch-actions">
+        <button class="icon-btn" title="编辑" onclick="editBatch('${batch.id}')">✏️</button>
+        <button class="icon-btn del" title="删除" onclick="deleteBatch('${batch.id}')">🗑️</button>
+      </div>
+    </div>
+    <div class="batch-dates">
+      ${(() => {
+        const dateErr = batch.orderDate && batch.deliveryDate && batch.orderDate > batch.deliveryDate;
+        const errStyle = dateErr ? 'border-color:#e53935;background:#fff5f5;' : '';
+        return `
+      <div class="date-field">
+        <div class="date-label">📋 下单时间</div>
+        <input type="date" class="date-input" value="${batch.orderDate||''}" style="${errStyle}"
+               onchange="updateBatchDate('${batch.id}','orderDate',this.value)">
+      </div>
+      <div class="date-field">
+        <div class="date-label">🚚 要货时间</div>
+        <input type="date" class="date-input" value="${batch.deliveryDate||''}" style="${errStyle}"
+               onchange="updateBatchDate('${batch.id}','deliveryDate',this.value)">
+      </div>
+      ${dateErr ? `<div style="width:100%;font-size:10px;color:#e53935;padding-top:4px;font-weight:600;">⚠️ 下单时间晚于要货时间</div>` : ''}`;
+      })()}
+    </div>
+    <div class="batch-products">${productsHtml}</div>
+    ${batch.remark ? `<div style="padding:5px 14px 7px;font-size:11px;color:#8892a4;border-top:1px solid #f5f5f5;">💬 ${batch.remark}</div>` : ''}
+    <div class="batch-footer">
+      <span class="batch-stat">共 <strong>${batch.products.length}</strong> 种 · 合计 <strong>${batchQtyTotal}</strong> 件</span>
+      <button class="btn btn-outline btn-sm" onclick="addProductToBatch('${batch.id}')">＋ 添加</button>
+    </div>
+  </div>`;
+}
+
+function renderBatchProduct(entry, batchId, pIndex, projId) {
+  const prod = PRODUCTS.find(x => x.id === entry.productId);
+  if (!prod) return '';
+  const qty      = parseInt(entry.qty) || 0;
+  const total    = getQuota(projId, prod.id);
+  const assigned = getAllocated(projId, prod.id);
+  // remain if this entry didn't exist (what would remain after others)
+  const otherAssigned = assigned - qty;
+  const availForThis  = total - otherAssigned;
+  const isOver        = qty > availForThis;
+  const remainAfter   = availForThis - qty;
+  const remainClass   = remainAfter <= 0 ? 'zero' : remainAfter <= total * 0.25 ? 'warn' : '';
+
+  return `
+  <div class="bp-item ${isOver ? 'qty-error' : ''}" draggable="true"
+       ondragstart="onBatchItemDragStart(event,'${batchId}',${pIndex})"
+       ondragend="onDragEnd(event)"
+       id="bpi-${batchId}-${pIndex}">
+    <div class="bp-dot" style="background:${prod.color}"></div>
+    <div class="bp-name" title="${prod.name}">${prod.name}</div>
+    <div class="bp-qty-wrap">
+      <input type="number" class="qty-input ${isOver ? 'over' : ''}"
+             value="${qty}" min="1" max="${availForThis > 0 ? availForThis : qty}"
+             onchange="updateQty('${batchId}',${pIndex},this.value)"
+             onclick="event.stopPropagation()"
+             title="最多可填 ${availForThis} ${prod.unit}">
+      <span class="bp-unit">${prod.unit}</span>
+    </div>
+    <span class="bp-remain ${remainClass}" title="本批次填写后，该产品剩余可分配量">${remainAfter >= 0 ? '剩'+remainAfter : '超'+(Math.abs(remainAfter))}</span>
+    <button class="bp-remove" onclick="removeProductFromBatch('${batchId}',${pIndex})">✕</button>
+  </div>`;
+}
+
+// ─── Batch CRUD ────────────────────────────────────────────────────────────────
+let modalMode = 'add', editingBatchId = null;
+
+function addBatch() {
+  if (!state.currentProject) return;
+  modalMode = 'add'; editingBatchId = null;
+  document.getElementById('modalTitle').textContent = '新增批次';
+  const n = (state.batches[state.currentProject.id] || []).length;
+  document.getElementById('modalBatchName').value = `第${['一','二','三','四','五','六','七','八','九','十'][n] || (n+1)}批`;
+  document.getElementById('modalOrderDate').value = '';
+  document.getElementById('modalDeliveryDate').value = '';
+  document.getElementById('modalRemark').value = '';
+  document.getElementById('modalOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('modalBatchName').select(), 80);
+}
+
+function editBatch(batchId) {
+  modalMode = 'edit'; editingBatchId = batchId;
+  const b = getBatch(batchId);
+  document.getElementById('modalTitle').textContent = '编辑批次';
+  document.getElementById('modalBatchName').value = b.name;
+  document.getElementById('modalOrderDate').value = b.orderDate || '';
+  document.getElementById('modalDeliveryDate').value = b.deliveryDate || '';
+  document.getElementById('modalRemark').value = b.remark || '';
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+function confirmModal() {
+  const name = document.getElementById('modalBatchName').value.trim();
+  if (!name) { document.getElementById('modalBatchName').style.borderColor = '#e53935'; return; }
+  const orderDate    = document.getElementById('modalOrderDate').value;
+  const deliveryDate = document.getElementById('modalDeliveryDate').value;
+  const remark       = document.getElementById('modalRemark').value.trim();
+  const batches      = state.batches[state.currentProject.id];
+  if (modalMode === 'add') {
+    batches.push({ id: 'b' + Date.now(), name, orderDate, deliveryDate, remark, products: [] });
+  } else {
+    Object.assign(getBatch(editingBatchId), { name, orderDate, deliveryDate, remark });
+  }
+  closeModal();
+  renderBatchArea();
+  renderProjectList(document.getElementById('projectSearch').value);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+  document.getElementById('modalBatchName').style.borderColor = '';
+}
+
+function deleteBatch(batchId) {
+  if (!confirm('确认删除这个批次？批次内的分配将被清除。')) return;
+  const batches = state.batches[state.currentProject.id];
+  const idx = batches.findIndex(b => b.id === batchId);
+  if (idx > -1) batches.splice(idx, 1);
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+  renderProjectList(document.getElementById('projectSearch').value);
+}
+
+function getBatch(batchId) {
+  return state.batches[state.currentProject.id].find(b => b.id === batchId);
+}
+
+function updateBatchDate(batchId, field, value) {
+  const batch = getBatch(batchId);
+  // Validate: orderDate must be before or equal to deliveryDate
+  const orderDate    = field === 'orderDate'    ? value : batch.orderDate;
+  const deliveryDate = field === 'deliveryDate' ? value : batch.deliveryDate;
+  if (orderDate && deliveryDate && orderDate > deliveryDate) {
+    showToast('⚠️ 下单时间不能晚于要货时间');
+    // Reset the input visually by re-rendering
+    renderBatchArea();
+    return;
+  }
+  batch[field] = value;
+  updateSummary();
+  // Re-render to update date input highlight if needed
+  renderBatchArea();
+}
+
+function updateQty(batchId, pIndex, value) {
+  const projId = state.currentProject.id;
+  const batch  = getBatch(batchId);
+  const entry  = batch.products[pIndex];
+  const prod   = PRODUCTS.find(p => p.id === entry.productId);
+  const newQty = Math.max(1, parseInt(value) || 1);
+
+  const total       = getQuota(projId, prod.id);
+  const otherAssign = getAllocated(projId, prod.id) - (parseInt(entry.qty) || 0);
+  const maxAllowed  = total - otherAssign;
+
+  if (newQty > maxAllowed) {
+    showToast(`⚠️ ${prod.name} 合同总量 ${total}，其他批次已分配 ${otherAssign}，本批次最多填 ${maxAllowed > 0 ? maxAllowed : 0}`);
+    // clamp to max but still set (shows red)
+    entry.qty = newQty;
+  } else {
+    entry.qty = newQty;
+  }
+  // Re-render to update all remaining indicators
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+}
+
+function removeProductFromBatch(batchId, pIndex) {
+  getBatch(batchId).products.splice(pIndex, 1);
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+}
+
+function addProductToBatch(batchId) {
+  const batch    = getBatch(batchId);
+  const projId   = state.currentProject.id;
+  const existing = new Set(batch.products.map(p => p.productId));
+  const available = PRODUCTS.filter(p => !existing.has(p.id));
+  if (!available.length) { showToast('所有产品已在此批次中'); return; }
+
+  const selected = new Set(); // track multi-select
+
+  const picker = document.createElement('div');
+  picker.id = 'productPicker';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(2px);';
+
+  function buildHtml() {
+    const rows = available.map(p => {
+      const remain  = getRemaining(projId, p.id);
+      const total   = getQuota(projId, p.id);
+      const depleted = remain <= 0;
+      const isSelected = selected.has(p.id);
+      const remColor = remain <= 0 ? '#e53935' : remain <= total * 0.25 ? '#f57c00' : '#43a047';
+      return `
+      <div data-pid="${p.id}"
+           onclick="${depleted ? '' : `togglePickProduct('${p.id}')`}"
+           style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+                  border:2px solid ${isSelected ? '#667eea' : '#eee'};margin-bottom:6px;
+                  background:${isSelected ? '#f0f2ff' : depleted ? '#fafafa' : '#fff'};
+                  cursor:${depleted ? 'not-allowed' : 'pointer'};
+                  opacity:${depleted ? '0.5' : '1'};
+                  transition:all 0.15s;">
+        <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${isSelected ? '#667eea' : '#d0d0d0'};
+                    background:${isSelected ? '#667eea' : '#fff'};
+                    display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;">
+          ${isSelected ? '✓' : ''}
+        </div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:${depleted ? '#bbb' : '#1a1a2e'};">${p.name}</div>
+          <div style="font-size:11px;color:#bbb;">${p.code} · 合同量 ${total} · 剩余
+            <span style="color:${remColor};font-weight:600;">${remain}</span> ${p.unit}
+            ${depleted ? '<span style="color:#e53935;margin-left:4px;">已全部分配</span>' : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const selCount = selected.size;
+    return `
+    <div style="background:#fff;border-radius:12px;width:400px;max-height:520px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+      <div style="padding:18px 20px 12px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:15px;font-weight:700;">添加产品到批次</div>
+        <button onclick="document.getElementById('productPicker').remove()"
+                style="width:28px;height:28px;border:none;background:#f5f5f5;border-radius:6px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:#888;">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px 16px;" data-picker-list>${rows}</div>
+      <div style="padding:12px 16px;border-top:1px solid #f0f2f5;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:#8892a4;" data-picker-count>已选 <strong style="color:${selCount > 0 ? '#667eea' : '#bbb'};">${selCount}</strong> 个产品</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('productPicker').remove()"
+                  style="padding:7px 16px;border:1.5px solid #e0e3e8;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">取消</button>
+          <button data-picker-confirm onclick="confirmPickProducts('${batchId}')"
+                  style="padding:7px 16px;border:none;border-radius:6px;background:${selCount > 0 ? '#667eea' : '#c5cae9'};color:#fff;cursor:${selCount > 0 ? 'pointer' : 'default'};font-size:13px;font-weight:500;">
+            确认添加${selCount > 0 ? '（' + selCount + '）' : ''}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  picker.innerHTML = buildHtml();
+  // Close on overlay click
+  picker.addEventListener('click', e => { if (e.target === picker) picker.remove(); });
+  document.body.appendChild(picker);
+
+  // Expose toggle & confirm to global scope for inline onclick
+  window._pickerSelected = selected;
+  window._pickerBatchId  = batchId;
+  window._refreshPicker  = () => { picker.querySelector('div').outerHTML; picker.innerHTML = buildHtml(); };
+}
+
+function togglePickProduct(productId) {
+  const selected = window._pickerSelected;
+  if (!selected) return;
+  if (selected.has(productId)) selected.delete(productId);
+  else selected.add(productId);
+  // Re-render picker content
+  const picker = document.getElementById('productPicker');
+  if (!picker) return;
+  const batchId = window._pickerBatchId;
+  const projId  = state.currentProject.id;
+  const existing = new Set(getBatch(batchId).products.map(p => p.productId));
+  const available = PRODUCTS.filter(p => !existing.has(p.id));
+
+  const rows = available.map(p => {
+    const remain   = getRemaining(projId, p.id);
+    const total    = getQuota(projId, p.id);
+    const depleted = remain <= 0;
+    const isSel    = selected.has(p.id);
+    const remColor = remain <= 0 ? '#e53935' : remain <= total * 0.25 ? '#f57c00' : '#43a047';
+    return `
+    <div data-pid="${p.id}" onclick="${depleted ? '' : `togglePickProduct('${p.id}')`}"
+         style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+                border:2px solid ${isSel ? '#667eea' : '#eee'};margin-bottom:6px;
+                background:${isSel ? '#f0f2ff' : depleted ? '#fafafa' : '#fff'};
+                cursor:${depleted ? 'not-allowed' : 'pointer'};opacity:${depleted ? '0.5' : '1'};transition:all 0.15s;">
+      <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${isSel ? '#667eea' : '#d0d0d0'};
+                  background:${isSel ? '#667eea' : '#fff'};
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;color:#fff;">
+        ${isSel ? '✓' : ''}
+      </div>
+      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:${depleted ? '#bbb' : '#1a1a2e'};">${p.name}</div>
+        <div style="font-size:11px;color:#bbb;">${p.code} · 合同量 ${total} · 剩余
+          <span style="color:${remColor};font-weight:600;">${remain}</span> ${p.unit}
+          ${depleted ? '<span style="color:#e53935;margin-left:4px;">已全部分配</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const selCount = selected.size;
+  picker.querySelector('[data-picker-list]').innerHTML = rows;
+  picker.querySelector('[data-picker-count]').innerHTML = `已选 <strong style="color:${selCount > 0 ? '#667eea' : '#bbb'};">${selCount}</strong> 个产品`;
+  const confirmBtn = picker.querySelector('[data-picker-confirm]');
+  confirmBtn.style.background = selCount > 0 ? '#667eea' : '#c5cae9';
+  confirmBtn.style.cursor = selCount > 0 ? 'pointer' : 'default';
+  confirmBtn.textContent = `确认添加${selCount > 0 ? '（' + selCount + '）' : ''}`;
+}
+
+function confirmPickProducts(batchId) {
+  const selected = window._pickerSelected;
+  if (!selected || selected.size === 0) return;
+  const projId = state.currentProject.id;
+  const batch  = getBatch(batchId);
+  selected.forEach(productId => {
+    if (batch.products.find(p => p.productId === productId)) return;
+    const remain = getRemaining(projId, productId);
+    batch.products.push({ productId, qty: remain > 0 ? 1 : 1 });
+    if (remain <= 0) showToast(`⚠️ ${PRODUCTS.find(p=>p.id===productId)?.name} 剩余量为 0，请调整数量`);
+  });
+  document.getElementById('productPicker')?.remove();
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+}
+
+// ─── Auto Split ───────────────────────────────────────────────────────────────
+function autoSplit() {
+  const projId  = state.currentProject?.id;
+  const batches = state.batches[projId];
+  if (!batches?.length) { showToast('请先创建批次'); return; }
+  if (!confirm(`将把所有产品按剩余量均分到 ${batches.length} 个批次（已有分配会清空）？`)) return;
+
+  // Clear all
+  batches.forEach(b => b.products = []);
+
+  // Distribute each product across batches evenly, respecting total quota
+  PRODUCTS.forEach(prod => {
+    const total = getQuota(projId, prod.id);
+    if (total <= 0) return;
+    const perBatch = Math.floor(total / batches.length);
+    let remainder  = total % batches.length;
+    batches.forEach((b, i) => {
+      const qty = perBatch + (i < remainder ? 1 : 0);
+      if (qty > 0) b.products.push({ productId: prod.id, qty });
+    });
+  });
+
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+  showToast('✅ 已按合同总量均分到各批次');
+}
+
+// ─── Summary ──────────────────────────────────────────────────────────────────
+function updateSummary() {
+  if (!state.currentProject) return;
+  const projId  = state.currentProject.id;
+  const batches = state.batches[projId] || [];
+  const orderDates    = batches.filter(b => b.orderDate).map(b => b.orderDate).sort();
+  const delivDates    = batches.filter(b => b.deliveryDate).map(b => b.deliveryDate).sort();
+
+  // Count products where allocation exceeds quota
+  const overflowCount = PRODUCTS.filter(p => {
+    const assigned = getAllocated(projId, p.id);
+    return assigned > getQuota(projId, p.id);
+  }).length;
+
+  document.getElementById('sumBatches').textContent     = batches.length;
+  document.getElementById('sumFirstOrder').textContent  = orderDates[0] || '--';
+  document.getElementById('sumLastDelivery').textContent = delivDates[delivDates.length - 1] || '--';
+  document.getElementById('sumOverflow').textContent    = overflowCount;
+  document.getElementById('sumOverflow').style.color    = overflowCount > 0 ? '#e53935' : '#43a047';
+}
+
+// ─── Drag & Drop ──────────────────────────────────────────────────────────────
+function onLibDragStart(e, productId) {
+  const projId = state.currentProject?.id;
+  if (projId) {
+    const remain = getRemaining(projId, productId);
+    if (remain <= 0) { e.preventDefault(); return; }
+  }
+  state.dragging = { type: 'library', productId };
+  e.dataTransfer.effectAllowed = 'copy';
+  e.dataTransfer.setData('text/plain', productId); // fallback for some browsers
+  document.getElementById('lib-' + productId)?.classList.add('dragging');
+}
+
+function onBatchItemDragStart(e, batchId, pIndex) {
+  state.dragging = { type: 'batch', batchId, pIndex };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', `${batchId}:${pIndex}`);
+  e.stopPropagation();
+  document.getElementById(`bpi-${batchId}-${pIndex}`)?.classList.add('dragging');
+}
+
+function onDragEnd(e) {
+  state.dragging = null;
+  document.querySelectorAll('.lib-item.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.bp-item.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.drop-zone.dragover').forEach(el => el.classList.remove('dragover'));
+}
+
+function onBatchDragOver(e, batchId) {
+  if (!state.dragging) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = state.dragging.type === 'library' ? 'copy' : 'move';
+  // Find the drop-zone within this batch card and add dragover
+  const zone = document.querySelector(`.drop-zone[data-bid="${batchId}"]`);
+  if (zone) zone.classList.add('dragover');
+}
+
+function onBatchDragLeave(e) {
+  // Only remove if actually leaving the drop zone (not entering a child)
+  const zone = e.currentTarget;
+  if (!zone.contains(e.relatedTarget)) {
+    zone.classList.remove('dragover');
+  }
+}
+
+function onBatchDrop(e, batchId) {
+  e.preventDefault();
+  const zone = document.querySelector(`.drop-zone[data-bid="${batchId}"]`);
+  if (zone) zone.classList.remove('dragover');
+
+  // Try to recover dragging state from dataTransfer if state was lost (re-render race)
+  if (!state.dragging) {
+    const data = e.dataTransfer.getData('text/plain');
+    if (!data) return;
+    if (data.includes(':')) {
+      const [fromId, pi] = data.split(':');
+      state.dragging = { type: 'batch', batchId: fromId, pIndex: parseInt(pi) };
+    } else {
+      state.dragging = { type: 'library', productId: data };
+    }
+  }
+
+  const projId      = state.currentProject.id;
+  const targetBatch = getBatch(batchId);
+
+  if (state.dragging.type === 'library') {
+    const productId = state.dragging.productId;
+    if (targetBatch.products.find(p => p.productId === productId)) {
+      showToast('该产品已在此批次中，可直接修改数量');
+      state.dragging = null; return;
+    }
+    const remain = getRemaining(projId, productId);
+    const qty    = remain > 0 ? 1 : 1;
+    targetBatch.products.push({ productId, qty });
+    if (remain <= 0) showToast('⚠️ 该产品剩余可分配量为 0，请调整数量或增加合同总量');
+  } else if (state.dragging.type === 'batch') {
+    const { batchId: fromId, pIndex } = state.dragging;
+    if (fromId === batchId) { state.dragging = null; return; }
+    const fromBatch = getBatch(fromId);
+    if (!fromBatch) { state.dragging = null; return; }
+    const [item] = fromBatch.products.splice(pIndex, 1);
+    if (targetBatch.products.find(p => p.productId === item.productId)) {
+      fromBatch.products.splice(pIndex, 0, item);
+      showToast('该产品已在目标批次中');
+      state.dragging = null; return;
+    }
+    targetBatch.products.push(item);
+  }
+
+  state.dragging = null;
+  renderBatchArea();
+  renderProductLibrary(document.getElementById('prodSearch').value);
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function showToast(msg, duration = 3000) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:420px;text-align:center;line-height:1.5;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+// ─── Export Excel ─────────────────────────────────────────────────────────────
+function exportExcel() {
+  if (!state.currentProject) { showToast('请先选择项目'); return; }
+  const proj    = state.currentProject;
+  const projId  = proj.id;
+  const batches = state.batches[projId] || [];
+  if (!batches.length) { showToast('暂无批次数据，请先创建批次'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: 汇总 ──
+  const summaryData = [
+    ['项目名称', proj.name],
+    ['客户', proj.client],
+    ['合同金额', proj.amount],
+    ['批次数量', batches.length],
+    [],
+    ['产品编码', '产品名称', '单位', '合同总量', '已分配', '剩余', '分配状态'],
+  ];
+  PRODUCTS.forEach(p => {
+    const total    = getQuota(projId, p.id);
+    const assigned = getAllocated(projId, p.id);
+    const remain   = total - assigned;
+    summaryData.push([p.code, p.name, p.unit, total, assigned, remain,
+      remain <= 0 ? '已全部分配' : assigned > 0 ? '部分分配' : '未分配']);
+  });
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [14,28,6,10,10,8,12].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsSummary, '汇总');
+
+  // ── Sheet 2: 批次明细（平铺） ──
+  const detailData = [
+    ['批次名称', '下单时间', '要货时间', '备注', '产品编码', '产品名称', '单位', '数量', '是否超量'],
+  ];
+  batches.forEach(b => {
+    if (b.products.length === 0) {
+      detailData.push([b.name, b.orderDate || '', b.deliveryDate || '', b.remark || '', '', '', '', '', '']);
+    } else {
+      b.products.forEach((entry, i) => {
+        const prod    = PRODUCTS.find(x => x.id === entry.productId);
+        const total   = getQuota(projId, entry.productId);
+        const others  = getAllocated(projId, entry.productId) - (parseInt(entry.qty) || 0);
+        const isOver  = (parseInt(entry.qty) || 0) > (total - others);
+        detailData.push([
+          i === 0 ? b.name : '',
+          i === 0 ? (b.orderDate || '') : '',
+          i === 0 ? (b.deliveryDate || '') : '',
+          i === 0 ? (b.remark || '') : '',
+          prod?.code || '',
+          prod?.name || '',
+          prod?.unit || '',
+          parseInt(entry.qty) || 0,
+          isOver ? '是' : '否',
+        ]);
+      });
+    }
+  });
+  const wsDetail = XLSX.utils.aoa_to_sheet(detailData);
+  wsDetail['!cols'] = [14,12,12,16,14,28,6,8,8].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsDetail, '批次明细');
+
+  // ── 每个批次单独一个 Sheet ──
+  batches.forEach((b, idx) => {
+    const sheetData = [
+      ['批次名称', b.name],
+      ['下单时间', b.orderDate || ''],
+      ['要货时间', b.deliveryDate || ''],
+      ['备注',     b.remark || ''],
+      [],
+      ['产品编码', '产品名称', '单位', '本批数量', '合同总量', '其他批次已分配', '剩余可用'],
+    ];
+    b.products.forEach(entry => {
+      const prod   = PRODUCTS.find(x => x.id === entry.productId);
+      const total  = getQuota(projId, entry.productId);
+      const others = getAllocated(projId, entry.productId) - (parseInt(entry.qty) || 0);
+      sheetData.push([
+        prod?.code || '',
+        prod?.name || '',
+        prod?.unit || '',
+        parseInt(entry.qty) || 0,
+        total,
+        others,
+        total - others - (parseInt(entry.qty) || 0),
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [14,28,6,10,10,14,10].map(w => ({ wch: w }));
+    // Sheet name max 31 chars
+    const sheetName = `${idx + 1}-${b.name}`.substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `${proj.name}_分批要货计划.xlsx`);
+  showToast('✅ Excel 已导出');
+}
+
+// ─── Download Template ─────────────────────────────────────────────────────────
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+
+  // 说明 Sheet
+  const infoData = [
+    ['分批要货计划 · 导入模版说明'],
+    [],
+    ['本模版用于批量导入分批计划，请按以下格式填写后上传'],
+    [],
+    ['【批次明细】Sheet 填写规则：'],
+    ['· 批次名称：同一批次的多行填相同名称，系统会自动合并'],
+    ['· 下单时间 / 要货时间：格式 YYYY-MM-DD，同批次只需第一行填写'],
+    ['· 产品编码：必须与右侧产品清单中的编码一致'],
+    ['· 数量：正整数，系统会自动校验不超过合同总量'],
+    [],
+    ['【产品清单】Sheet 填写规则：'],
+    ['· 产品编码、产品名称、单位、合同总量为必填项'],
+    ['· 合同总量：该产品在本项目中的采购总量'],
+  ];
+  const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
+  wsInfo['!cols'] = [{ wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, wsInfo, '填写说明');
+
+  // 产品清单 Sheet（预填示例）
+  const prodData = [
+    ['产品编码', '产品名称', '单位', '合同总量'],
+    ...PRODUCTS.map(p => [p.code, p.name, p.unit, p.defaultQty]),
+  ];
+  const wsProd = XLSX.utils.aoa_to_sheet(prodData);
+  wsProd['!cols'] = [14,28,6,10].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsProd, '产品清单');
+
+  // 批次明细 Sheet（示例数据）
+  const batchData = [
+    ['批次名称', '下单时间', '要货时间', '备注', '产品编码', '产品名称', '单位', '数量'],
+    ['第一批', '2026-04-01', '2026-04-15', '优先交付服务器', 'SRV-R750', '服务器 PowerEdge R750', '台', 10],
+    ['第一批', '',           '',           '',                'SW-NX9300','核心交换机 Nexus 9300',  '台', 4],
+    ['第二批', '2026-05-01', '2026-05-20', '',                'SRV-R750', '服务器 PowerEdge R750', '台', 10],
+    ['第二批', '',           '',           '',                'SW-NX9300','核心交换机 Nexus 9300',  '台', 4],
+  ];
+  const wsBatch = XLSX.utils.aoa_to_sheet(batchData);
+  wsBatch['!cols'] = [14,12,12,20,14,28,6,8].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, wsBatch, '批次明细');
+
+  XLSX.writeFile(wb, '分批要货计划_导入模版.xlsx');
+  showToast('✅ 模版已下载，请按说明填写后导入');
+}
+
+// ─── Import Excel ──────────────────────────────────────────────────────────────
+function importExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = ''; // reset so same file can be re-imported
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      // ── 读产品清单（可选，若有则更新配置清单总量） ──
+      const prodSheet = wb.Sheets['产品清单'];
+      const prodMap   = {}; // code -> { name, unit, qty }
+      if (prodSheet) {
+        const rows = XLSX.utils.sheet_to_json(prodSheet, { header: 1, defval: '' });
+        rows.slice(1).forEach(r => {
+          const code = String(r[0] || '').trim();
+          if (code) prodMap[code] = { name: String(r[1]||'').trim(), unit: String(r[2]||'').trim(), qty: parseInt(r[3]) || 0 };
+        });
+      }
+
+      // ── 读批次明细 ──
+      const batchSheet = wb.Sheets['批次明细'];
+      if (!batchSheet) { showToast('❌ 未找到「批次明细」Sheet，请使用标准模版'); return; }
+
+      const rows = XLSX.utils.sheet_to_json(batchSheet, { header: 1, defval: '' });
+      if (rows.length < 2) { showToast('❌ 批次明细 Sheet 数据为空'); return; }
+
+      // Parse rows (skip header)
+      const batchMap = new Map(); // batchName -> batch object
+      const batchOrder = [];
+
+      rows.slice(1).forEach(r => {
+        const batchName  = String(r[0] || '').trim();
+        const orderDate  = r[1] ? formatDateCell(r[1]) : '';
+        const delivDate  = r[2] ? formatDateCell(r[2]) : '';
+        const remark     = String(r[3] || '').trim();
+        const prodCode   = String(r[4] || '').trim();
+        const qty        = parseInt(r[7]) || 0;
+
+        if (!batchName) return;
+
+        if (!batchMap.has(batchName)) {
+          const newBatch = {
+            id: 'b' + Date.now() + '_' + batchOrder.length,
+            name: batchName,
+            orderDate: orderDate,
+            deliveryDate: delivDate,
+            remark: remark,
+            products: [],
+          };
+          batchMap.set(batchName, newBatch);
+          batchOrder.push(newBatch);
+        } else {
+          const b = batchMap.get(batchName);
+          if (!b.orderDate && orderDate) b.orderDate = orderDate;
+          if (!b.deliveryDate && delivDate) b.deliveryDate = delivDate;
+          if (!b.remark && remark) b.remark = remark;
+        }
+
+        if (prodCode) {
+          // Match product by code
+          const prod = PRODUCTS.find(p => p.code === prodCode);
+          if (!prod) {
+            console.warn('未找到产品编码:', prodCode);
+            return;
+          }
+          const batch = batchMap.get(batchName);
+          const exists = batch.products.find(p => p.productId === prod.id);
+          if (!exists && qty > 0) {
+            batch.products.push({ productId: prod.id, qty });
+          }
+        }
+      });
+
+      if (!batchOrder.length) { showToast('❌ 未解析到有效批次数据，请检查格式'); return; }
+
+      // ── 选择目标项目 ──
+      if (!state.currentProject) {
+        showToast('⚠️ 请先在左侧选择一个项目，再导入计划');
+        return;
+      }
+      const projId = state.currentProject.id;
+
+      // 更新产品配置清单总量
+      if (Object.keys(prodMap).length > 0) {
+        Object.entries(prodMap).forEach(([code, info]) => {
+          const prod = PRODUCTS.find(p => p.code === code);
+          if (prod && info.qty > 0) setQuota(projId, prod.id, info.qty);
+        });
+      }
+
+      // 确认是否覆盖
+      const existing = state.batches[projId] || [];
+      const doImport = () => {
+        state.batches[projId] = batchOrder;
+        renderBatchArea();
+        renderProductLibrary(document.getElementById('prodSearch').value);
+        renderProjectList(document.getElementById('projectSearch').value);
+        showToast(`✅ 导入成功：${batchOrder.length} 个批次，请检查数量是否有超量`);
+      };
+
+      if (existing.length > 0) {
+        if (confirm(`当前项目已有 ${existing.length} 个批次，导入将覆盖现有计划，确认继续？`)) doImport();
+      } else {
+        doImport();
+      }
+
+    } catch (err) {
+      console.error(err);
+      showToast('❌ 文件解析失败，请确认使用标准模版格式');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function formatDateCell(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return val.toISOString().slice(0, 10);
+  }
+  const s = String(val).trim();
+  // Handle numeric serial date from Excel
+  if (/^\d{5}$/.test(s)) {
+    const d = XLSX.SSF.parse_date_code(parseInt(s));
+    return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  // Already string like 2026-04-01
+  return s;
+}
+
+function savePlan() { showToast('✅ 计划已保存（演示模式）'); }
+
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display === 'flex') confirmModal();
+});
+
+init();
+</script>
+</body>
+</html>

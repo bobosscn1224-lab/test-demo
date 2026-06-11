@@ -1,0 +1,178 @@
+[
+  {
+    "page": 1,
+    "method1_lines": 17,
+    "method2_lines": 36,
+    "has_answer": true,
+    "text_sample": "M11.1 验证商机流程说明文件-V1.0​\n密级：B\n​\n​\nM11.1 验证商机流程​\n文件名称：验证商机流程说明文件​ 版本：V1.0​ 密级：B​\n文件编号：MTCV-MO-M11.1-P-验证商机-V1.0​ 生效日期：2025/2/28​\n流程L2 PO：曹曦​ 流程L3 PO：汪霏​ 流程组团队成员：郑秀凤、余养文、黄武峰、孙\n振兴、付茹​\n更 改 记 录​\n版本号​ 更改人​ 审核人​ 批准人​ 生效日期​ 更改内容​\nV0.9​ 流程PO：汪霏​ 曹曦​ EBG流程执委会​ 2025-2-28​ 首次发布​\n流程PC：赵波​\nV1.0​ 流程PO：汪霏​ 曹曦​ EBG流程执委会​\n流程PC：赵波​\n​\n1. 目的​",
+    "method1_normal": 13
+  },
+  {
+    "page": 2,
+    "method1_lines": 28,
+    "method2_lines": 45,
+    "has_answer": false,
+    "text_sample": "本流程专注于优化商机验证环节，其核心旨在确保进入销售漏斗的商机具备真实性和健康性。通过\n对符合条件的商机进行细致评估与分级分层管理，我们能够更精准地识别出重点商机。重点商机发起\n立项流程，经过立项评审决策后，一旦立项通过，即投入相应资源全力推进。\n优质的商机与高效的商机管理机制是企业稳健发展的坚实基石，对企业业绩具有举足轻重的影响。\n因此，我们特此发布本流程，旨在清晰界定并规范商机验证的各个环节，明确各节点的输入输出以及\n业务规则，从而有效指导业务活动的正常开展，确保每一步都精准无误。\n2. 适用范围​\n本流程适用于 EBG 所有销售填报且进入销售漏斗的商机业务场景。​\n3. 名词解释​\n无\n4. 职责分工​\n角色​ 描述​ 职责​\n销售代表​ 行业客户代表、行业经理、城 承担商机提报的职责，确保所提报商机信息的准确无误。​\n市客户代表、城市经理、固折\n销售、固折经理、渠道销售、\n渠道经理、服务产品销售​\n销售经理​ 区域经理、系统部本部行业经 严格把关商机审核与审批流程，保障商机质量。对审批通\n理（主管）、服务产品销售经 过的商机进行分类，明确逐级立项商机，同时负责商机立\n理​ 项评",
+    "method1_normal": 26
+  },
+  {
+    "page": 3,
+    "method1_lines": 32,
+    "method2_lines": 57,
+    "has_answer": false,
+    "text_sample": "5.1 流程卡 ​\n流程名称​ M11.1 验证商机​ 流程层级​ L3​ 流程架构 M11.1​\n编码​\n流程定义​ 验证商机流程是一个包括商 流程目的​ 深入掌握商机的基本概况，涵盖客户预算区间、基础\n机填报、审批进入漏斗、日 需求、购买意向、决策链条关键人及采购时间节点等\n常检查、商机分级评估及立 关键信息。与此同时，必须对客户的信誉状况及支付\n项评审决策等核心步骤的系 能力进行科学评估，以降低潜在风险，提升漏斗质\n统性验证过程。​ 量；对商机进行科学评估，分层分级管理，重点商机\n单独立项，提升赢单率及客户体验。​\n流程责任岗 销售经理​ 上一层流 M11 MO 管理商机​\n位​ 程名称​\n包含的下层 商机提报，商机审批，商机检查，商机分类，立项申请，立项评审，立项决策​\n子流程或活\n动​\n流程输入​ 潜在客户信息，商机来源与初步评估，市场竞争与友商情况，内部资源与能力评估，其他相关信\n息(政策法规，行业趋势，客户反馈)​\n输入标准​ MANT+P+折扣信息清楚、完整、符合SMART原则​\n流程输出​ 通过审核的一般商机记录​\n通过立项评审的项目记录​\n输出标准​ 一般商机的MA",
+    "method1_normal": 28
+  },
+  {
+    "page": 4,
+    "method1_lines": 6,
+    "method2_lines": 7,
+    "has_answer": false,
+    "text_sample": "重要性：反映立项评审流程及时性，确保符合条件商机100%发起立项评审，明确项目经理及\n项目组成员、分工。​\n5.2 流程图及说明​\n5.2.1 L2键盘图​\n5.2.2 L2流程图​\n5.2.3 L3示意图​",
+    "method1_normal": 6
+  },
+  {
+    "page": 5,
+    "method1_lines": 5,
+    "method2_lines": 28,
+    "has_answer": false,
+    "text_sample": "5.2.4 L3流程图​\n5.2.5 流程活动说明​\n编号​ 活 执行 流程活动说 是否 输入​ 输入 输出​ 输出 活动 业务 指导 工作\n动/ 角 明​ 有 标准​ 标准​ 难 变化 书​ 模板​\n点/ 点说",
+    "method1_normal": 4
+  },
+  {
+    "page": 6,
+    "method1_lines": 62,
+    "method2_lines": 182,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 30
+  },
+  {
+    "page": 7,
+    "method1_lines": 50,
+    "method2_lines": 69,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 13
+  },
+  {
+    "page": 8,
+    "method1_lines": 46,
+    "method2_lines": 47,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 2
+  },
+  {
+    "page": 9,
+    "method1_lines": 73,
+    "method2_lines": 179,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 29
+  },
+  {
+    "page": 10,
+    "method1_lines": 41,
+    "method2_lines": 42,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 1
+  },
+  {
+    "page": 11,
+    "method1_lines": 40,
+    "method2_lines": 107,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 17
+  },
+  {
+    "page": 12,
+    "method1_lines": 60,
+    "method2_lines": 134,
+    "has_answer": false,
+    "text_sample": "在“立项级 （包 分\n别”栏下拉 括但 类，\n选择具体立 不限 明确\n项级别；当 于预 商机\n选 算审 是否\n择“否”时 批文 立项\n，商机默认 件、 以及\n为一般商 关键 立项\n机，无需立 人物 级\n项；（重客 拜访 别；​\n商机默认必 记录\n销售\n须进行立项 留\n经理\n申请，立项 痕、\n完成\n级别在BU级 渠道\n商机\n别及以上）​ 拜访\n评估\n信息\n2、销售经 分类\n等）\n理完成商机 后，\n，以\n评估分类 需要\n上信\n后，需要进 进行\n息均\n行立项的商 立项\n在\n机对应销售 的商\nCRM\n代表会接收 机对\n上同\n到CRM系统 应销\n步可\n自动发送的 售代\n见；​\n商机评估分 表会\n类信息。​ 接收\n到\n分类标准参\nCRM\n加《商机分\n系统\n级表》​\n自动\n发送\n（需IT支 的商\n持）​ 机评\n估分\n类信\n息。​\n004​ 商机 销售 第一次进审 否​ 有明 商机 包含 商机 ​ 商\n立项 代表​ 批进漏斗的 确分 立项 该商 立项 机立\n申请​ 项目，若满 级分 申请 机的 申请 项评\n足大项目立 类的 审批 基本 通过 审表-\n项条件，系 商机 流程​ 信息 CRM 模\n统会自动",
+    "method1_normal": 34
+  },
+  {
+    "page": 13,
+    "method1_lines": 72,
+    "method2_lines": 98,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 14
+  },
+  {
+    "page": 14,
+    "method1_lines": 50,
+    "method2_lines": 117,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 11
+  },
+  {
+    "page": 15,
+    "method1_lines": 66,
+    "method2_lines": 117,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 27
+  },
+  {
+    "page": 16,
+    "method1_lines": 40,
+    "method2_lines": 67,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 12
+  },
+  {
+    "page": 17,
+    "method1_lines": 74,
+    "method2_lines": 153,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 24
+  },
+  {
+    "page": 18,
+    "method1_lines": 27,
+    "method2_lines": 74,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 13
+  },
+  {
+    "page": 19,
+    "method1_lines": 1,
+    "method2_lines": 2,
+    "has_answer": false,
+    "text_sample": "5.3.6.2 销售经理岗位活动说明：​",
+    "method1_normal": 1
+  },
+  {
+    "page": 20,
+    "method1_lines": 0,
+    "method2_lines": 1,
+    "has_answer": false,
+    "text_sample": "",
+    "method1_normal": 0
+  },
+  {
+    "page": 21,
+    "method1_lines": 15,
+    "method2_lines": 36,
+    "has_answer": false,
+    "text_sample": "5.3.6.3 销管BP岗位活动说明​\n5.3 KCP、KDP说明及指导书​\n关键节 控制点​ KCP/KDP说明​ KCP/KDP负责人​ 指导书​ 备注​\n点​\nM1.1.1 商机审批​ 为了保证商机记录的真实性 销售经理​ 参见活动说明《企 新增​\n分析并 和准确性，通过商机审批 业网事业部销售漏\n（KCP）​\n验证商 KCP进行质量控制，关键控 斗质量管理标准\n机​ 制要素：​ V9.0》指导书​\n1）真实性：MANT清晰可验 ​ （第001号）企\n证​ 业网事业部销售漏\n斗质量管理标准\n2）合作伙伴：P真实，与我\nV9.0.pdf ​\n司联合共建​",
+    "method1_normal": 14
+  },
+  {
+    "page": 22,
+    "method1_lines": 16,
+    "method2_lines": 24,
+    "has_answer": false,
+    "text_sample": "3）目标性：有明确的折扣\n目标​\n4）及时性：审批及时，过\n程变化更新及时​\n5）主动性：对于存疑商机\n或者重点商机进行主动验证\n（包括：邮件，通话记录，\n微信聊天记录等）​\nM11.1.2 商机立项 明确立项标准和流程实现重 销售经理​ 新增​\n商机分 评审决策​ 点商机能够通过项目组管\n类&立项​ 理。​\n（KCP/K\nDP）​\n6、解释权限及生效日期​\n本文档的解释权归属流程管理部。\n本文档自发布之日起至V1.1版本发布前生效。​",
+    "method1_normal": 14
+  }
+]

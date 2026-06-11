@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流程评审与发布进度看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .chart-container {
+            width: 80%;
+            margin: 20px auto;
+        }
+        .summary {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .summary h2 {
+            margin-top: 0;
+        }
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>流程评审与发布进度看板</h1>
+
+    <!-- 评审与发布进展图表 -->
+    <div class="chart-container">
+        <h2>L3流程v0.9版本评审与发布进展</h2>
+        <canvas id="progressChart"></canvas>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="summary">
+        <h2>数据详情</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>L2流程</th>
+                    <th>L2 PO</th>
+                    <th>L3条数</th>
+                    <th>评审通过进展</th>
+                    <th>发布数量</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>SD</td>
+                    <td>吴可恺</td>
+                    <td>6</td>
+                    <td>6</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>MO</td>
+                    <td>曹曦</td>
+                    <td>5</td>
+                    <td>4</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>MI</td>
+                    <td>项小升</td>
+                    <td>4</td>
+                    <td>3</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>SCE</td>
+                    <td>岳雯</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>SMD</td>
+                    <td>邵德强</td>
+                    <td>3</td>
+                    <td>2</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>OR</td>
+                    <td>刘福能</td>
+                    <td>4</td>
+                    <td>2</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>DG</td>
+                    <td>夏国卿</td>
+                    <td>4</td>
+                    <td>2</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>DSTE</td>
+                    <td>黄镇</td>
+                    <td>5</td>
+                    <td>2</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>ML</td>
+                    <td>任礼抗</td>
+                    <td>3</td>
+                    <td>1</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>MM</td>
+                    <td>马雪峰</td>
+                    <td>6</td>
+                    <td>1</td>
+                    <td>0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // 评审与发布进展数据
+        const progressData = {
+            labels: ['SD - 吴可恺', 'MO - 曹曦', 'MI - 项小升', 'SCE - 岳雯', 'SMD - 邵德强', 'OR - 刘福能', 'DG - 夏国卿', 'DSTE - 黄镇', 'ML - 任礼抗', 'MM - 马雪峰'],
+            datasets: [
+                {
+                    label: '评审通过进展',
+                    data: [6, 4, 3, 2, 2, 2, 2, 2, 1, 1],
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: '发布数量',
+                    data: [0, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        };
+
+        // 评审与发布进展图表配置
+        const progressCtx = document.getElementById('progressChart').getContext('2d');
+        new Chart(progressCtx, {
+            type: 'bar',
+            data: progressData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 6
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

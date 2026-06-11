@@ -1,0 +1,7 @@
+.env
+data/
+data/feishu_user_token.json
+server_stdout.log
+server_stderr.log
+__pycache__/
+*.pyc

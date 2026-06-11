@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Users\\\\Lenovo\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu -q 2>&1)"
+    ]
+  }
+}

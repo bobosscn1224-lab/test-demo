@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流程评审与发布进度看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 10px;
+        }
+        .chart-container {
+            width: 100%;
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-height: 300px;
+            overflow: hidden;
+        }
+        .summary {
+            width: 100%;
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-height: 300px;
+            overflow: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 6px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        canvas {
+            max-width: 100%;
+            height: 250px !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>流程评审与发布进度看板</h1>
+
+    <div class="dashboard">
+        <!-- 评审与发布进展图表 -->
+        <div class="chart-container">
+            <h2>L3流程v0.9版本评审与发布进展</h2>
+            <canvas id="progressChart"></canvas>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="summary">
+            <h2>数据详情</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>L2流程</th>
+                        <th>L2 PO</th>
+                        <th>L3条数</th>
+                        <th>评审通过</th>
+                        <th>发布数量</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>SD</td>
+                        <td>吴可恺</td>
+                        <td>6</td>
+                        <td>6</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td>MO</td>
+                        <td>曹曦</td>
+                        <td>5</td>
+                        <td>4</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>MI</td>
+                        <td>项小升</td>
+                        <td>4</td>
+                        <td>3</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td>SCE</td>
+                        <td>岳雯</td>
+                        <td>3</td>
+                        <td>2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>SMD</td>
+                        <td>邵德强</td>
+                        <td>3</td>
+                        <td>2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>OR</td>
+                        <td>刘福能</td>
+                        <td>4</td>
+                        <td>2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>DG</td>
+                        <td>夏国卿</td>
+                        <td>4</td>
+                        <td>2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>DSTE</td>
+                        <td>黄镇</td>
+                        <td>5</td>
+                        <td>2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>ML</td>
+                        <td>任礼抗</td>
+                        <td>3</td>
+                        <td>1</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>MM</td>
+                        <td>马雪峰</td>
+                        <td>6</td>
+                        <td>1</td>
+                        <td>0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 评审与发布进展数据
+        const progressData = {
+            labels: ['SD - 吴可恺', 'MO - 曹曦', 'MI - 项小升', 'SCE - 岳雯', 'SMD - 邵德强', 'OR - 刘福能', 'DG - 夏国卿', 'DSTE - 黄镇', 'ML - 任礼抗', 'MM - 马雪峰'],
+            datasets: [
+                {
+                    label: '评审通过进展',
+                    data: [6, 4, 3, 2, 2, 2, 2, 2, 1, 1],
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: '发布数量',
+                    data: [0, 1, 0, 1, 1, 1, 1, 1, 1, 0],
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        };
+
+        // 评审与发布进展图表配置
+        const progressCtx = document.getElementById('progressChart').getContext('2d');
+        new Chart(progressCtx, {
+            type: 'bar',
+            data: progressData,
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 6
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

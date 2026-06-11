@@ -1,0 +1,10 @@
+<rules>
+  <rule priority="high">
+    <description>必须按8角色流水线顺序执行：产品分析→架构→数据库→后端→前端→测试→质检→交付</description>
+    <enforce>true</enforce>
+    <forbid>跨步骤开发、跳过环节、半成品输出</forbid>
+  </rule>
+  <rule priority="high">
+    <description>各角色各司其职，阶段验收通过后方可进入下一环节</description>
+  </rule>
+</rules>
