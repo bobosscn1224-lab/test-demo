@@ -22,7 +22,7 @@ FEISHU_KB_IMPORTED_PATH = os.path.abspath(os.path.join("data", "feishu_kb_import
 FEISHU_KB_OAUTH_STATE = "knowledge_feishu_import"
 FEISHU_KB_OAUTH_SCOPE_RAW = os.environ.get(
     "FEISHU_KB_OAUTH_SCOPE",
-    "drive:drive:readonly drive:drive.metadata:readonly wiki:wiki:readonly docx:document:readonly space:document:retrieve",
+    "drive:drive:readonly drive:drive.metadata:readonly wiki:wiki:readonly docx:document:readonly space:document:retrieve minutes:minutes:readonly minutes:minutes.transcript:export minutes:minutes.basic:read",
 )
 _scope_parts = [
     scope for scope in FEISHU_KB_OAUTH_SCOPE_RAW.split()

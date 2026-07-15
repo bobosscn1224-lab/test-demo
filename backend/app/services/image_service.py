@@ -19,7 +19,13 @@ def _get_ocr():
     global _ocr
     if _ocr is None:
         from paddleocr import PaddleOCR
-        _ocr = PaddleOCR(lang='ch')
+        _ocr = PaddleOCR(
+            lang='ch',
+            ocr_version='PP-OCRv4',
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+        )
     return _ocr
 
 

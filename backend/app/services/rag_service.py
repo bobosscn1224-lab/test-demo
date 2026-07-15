@@ -218,7 +218,7 @@ class RAGService:
 
         return await self.index_text(cleaned, metadata)
 
-    async def index_file(self, file_path: str) -> list[str]:
+    async def index_file(self, file_path: str, tag: bool = True) -> list[str]:
         if not self._ready:
             await self.initialize()
         if not self._ready:
@@ -235,6 +235,16 @@ class RAGService:
             "file_path": file_path,
             "doc_id": doc_id,
         }
+
+        # Auto-tag with business context labels (cached to .tags.json)
+        if tag:
+            try:
+                from app.services.knowledge_tagger import knowledge_tagger
+                tags = await knowledge_tagger.tag_file(file_path)
+                meta.update(knowledge_tagger.tags_to_metadata(tags))
+            except Exception as exc:
+                logger.debug("Tagging skipped for %s: %s", file_path, exc)
+
         return await self.index_text(text, meta)
 
     # ── Hybrid Search ─────────────────────────────────────────

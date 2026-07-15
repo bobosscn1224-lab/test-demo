@@ -82,32 +82,40 @@ class ChatService:
         self.db.add(user_msg)
         await self.db.commit()
 
-        # Build context: persona + user profile + knowledge
+        # Build context
         user_profile_summary = await self.profile_svc.get_profile_summary()
+        # ContextManager — with timeout, falls back to basic context
+        gathered = knowledge_context
+        try:
+            from app.services.context_manager import context_manager
+            gathered = await asyncio.wait_for(
+                context_manager.gather(
+                    session_id=session.id, user_message=user_message,
+                    knowledge_context=knowledge_context,
+                    user_profile=user_profile_summary, mode=mode,
+                ),
+                timeout=5.0,
+            )
+        except Exception:
+            pass
         system_prompt = build_system_prompt(
-            persona,
-            knowledge_context=knowledge_context,
-            user_profile=user_profile_summary,
-            mode=mode,
+            persona, knowledge_context=gathered, user_profile="", mode=mode,
         )
 
         history = await self._get_history(session.id, limit=40)
         messages = history
 
         # Stream from DeepSeek
+        import time as _time; _t0 = _time.monotonic()
         full_reply = ""
-        tokens_in = None
-        tokens_out = None
-
         try:
             mt = persona.config_json.get("max_response_length", 32768)
-            print(f"[CHAT] max_tokens={mt} from persona.config_json")
             async for token in llm_service.stream_chat(
                 system_prompt=system_prompt,
                 messages=messages,
                 temperature=persona.config_json.get("temperature", 0.7),
                 max_tokens=mt,
-                thinking={"type": "disabled"},
+                # Note: thinking param removed — not supported by DeepSeek API
             ):
                 full_reply += token
                 yield json.dumps({"type": "token", "data": token}, ensure_ascii=False)
@@ -115,23 +123,32 @@ class ChatService:
             yield json.dumps({"type": "error", "data": str(e)}, ensure_ascii=False)
             return
 
-        # Save assistant message
+        # ── Rich HTML (instant) ────────────────────────────────────
+        try:
+            from app.services.response_formatter import ResponseFormatter
+            html = ResponseFormatter()._simple_format(full_reply)
+            yield json.dumps({"type": "rich", "data": {
+                "html": html, "followups": [], "plain_text": full_reply[:500],
+            }}, ensure_ascii=False)
+        except Exception:
+            pass
+
+        # ── Save + post-processing ─────────────────────────────────
         assistant_msg = ChatMessage(
-            id=gen_uuid(),
-            session_id=session.id,
-            role="assistant",
+            id=gen_uuid(), session_id=session.id, role="assistant",
             content=full_reply,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
         )
         self.db.add(assistant_msg)
         await self.db.commit()
 
-        # Background: extract user info from this conversation
+        # Background tasks
         asyncio.create_task(extract_user_info_from_message(user_message, full_reply, self.db))
 
-        # Send done event
+        # Done
         yield json.dumps(
-            {"type": "done", "data": {"session_id": session.id, "tokens_in": tokens_in, "tokens_out": tokens_out}},
+            {"type": "done", "data": {
+                "session_id": session.id, "status": "success",
+                "chars": len(full_reply),
+            }},
             ensure_ascii=False,
         )

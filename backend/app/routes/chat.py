@@ -207,20 +207,33 @@ async def sse_generator(
 
 @router.post("/stream")
 async def chat_stream(req: ChatRequest, db: AsyncSession = Depends(get_db)):
-    # Check for ongoing guided weekly report session (multi-turn)
+    # Check for ongoing multi-turn skill sessions — restore from DB first
+    # (in-memory _sessions is cleared on server restart, but DB persists)
     skill = None
     if req.session_id:
-        from app.skills.weekly_report.handler import _sessions
-        if not skill and req.session_id in _sessions:
+        # Restore each skill's sessions from DB before checking in-memory state
+        from app.skills.weekly_report.handler import _sessions, _helper as wr_helper
+        await wr_helper.restore()
+        if req.session_id in _sessions:
             skill = find_skill_by_name("weekly_report")
+
         if not skill:
-            from app.skills.ppt_maker.handler import _sessions as ppt_sessions
+            from app.skills.ppt_maker_v2.handler import _sessions as ppt_sessions, _helper as ppt_helper
+            await ppt_helper.restore()
             if req.session_id in ppt_sessions:
                 skill = find_skill_by_name("ppt_maker")
+
         if not skill:
-            from app.skills.feishu_doc_reader.handler import _sessions as feishu_doc_sessions
+            from app.skills.feishu_doc_reader.handler import _sessions as feishu_doc_sessions, _helper as feishu_helper
+            await feishu_helper.restore()
             if req.session_id in feishu_doc_sessions:
                 skill = find_skill_by_name("feishu_doc_reader")
+
+        if not skill:
+            from app.skills.image_gen import _sessions as img_sessions, _helper as img_helper
+            await img_helper.restore()
+            if req.session_id in img_sessions:
+                skill = find_skill_by_name("image_gen")
 
     # Check for skill trigger
     if not skill:
@@ -298,14 +311,16 @@ async def upload_and_chat(
             "content_type": upload.content_type,
         })
 
-    # Check skill
+    # Check skill — restore from DB first (survives server restart)
     skill = None
     if session_id:
-        from app.skills.weekly_report.handler import _sessions
+        from app.skills.weekly_report.handler import _sessions, _helper as wr_helper
+        await wr_helper.restore()
         if session_id in _sessions:
             skill = find_skill_by_name("weekly_report")
         if not skill:
-            from app.skills.ppt_maker.handler import _sessions as ppt_sessions
+            from app.skills.ppt_maker_v2.handler import _sessions as ppt_sessions, _helper as ppt_helper
+            await ppt_helper.restore()
             if session_id in ppt_sessions:
                 skill = find_skill_by_name("ppt_maker")
     if not skill:

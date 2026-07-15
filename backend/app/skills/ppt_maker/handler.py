@@ -1,18 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import subprocess
 import uuid
 
 from app.config import settings
+from app.services._paths import PUBLIC_DIR
 from app.services.llm_service import llm_service
 from app.skills.base import BaseSkill, SkillContext, SkillResult
 from app.utils.file_parser import parse_file_sync
+from app.core.skill_session import SkillSessionHelper
+from . import visual_systems
 
+logger = logging.getLogger(__name__)
 
+SKILL_NAME = "ppt_maker"
 _sessions: dict[str, dict] = {}
+_helper = SkillSessionHelper(SKILL_NAME, _sessions)
 
 EXIT_WORDS = {
     "退出",
@@ -39,8 +46,11 @@ class PPTMakerSkill(BaseSkill):
         msg = context.user_message.strip()
         session_id = context.session_id or "default"
 
+        # Restore persisted sessions on first access
+        await _helper.restore()
+
         if self._is_exit(msg):
-            _sessions.pop(session_id, None)
+            await _helper.delete(session_id)
             return SkillResult(success=True, message="好的，已退出当前 PPT 制作流程。")
 
         session = _sessions.get(session_id)
@@ -48,34 +58,42 @@ class PPTMakerSkill(BaseSkill):
             return self._show_entry_menu(session_id)
 
         stage = session.get("stage")
+        result = None
         if stage == "awaiting_entry_choice":
-            return await self._handle_entry_choice(context, session_id)
-        if stage == "awaiting_content":
-            return await self._handle_content(context, session_id)
-        if stage == "awaiting_outline_confirm":
-            return await self._handle_outline_confirm(context, session_id)
-        if stage == "awaiting_outline_for_visual":
-            return await self._handle_outline_for_visual(context, session_id)
-        if stage == "awaiting_collage_for_pages":
-            return await self._handle_collage_for_pages(context, session_id)
-        if stage == "awaiting_page_info_for_step3":
-            return await self._handle_page_info_for_step3(context, session_id)
-        if stage == "awaiting_page_image_for_editable_ppt":
-            return await self._handle_page_image_for_editable_ppt(context, session_id)
-        if stage == "visual_direction":
-            return await self._handle_visual_direction_confirm(context, session_id)
-        if stage == "entry3_ready":
-            return await self._handle_entry3_ready(context, session_id)
-        if stage == "awaiting_visual_choice":
-            return self._handle_visual_choice(context, session_id)
-        if stage == "awaiting_step3_start":
-            return self._ack_step3_start(session_id)
-        if stage in {"generating_visual_direction", "generating_single_pages"}:
-            return self._return_generation_status(session_id)
-        if stage == "awaiting_editable_ppt_scope":
-            return self._handle_editable_ppt_scope(context, session_id)
+            result = await self._handle_entry_choice(context, session_id)
+        elif stage == "awaiting_content":
+            result = await self._handle_content(context, session_id)
+        elif stage == "awaiting_outline_confirm":
+            result = await self._handle_outline_confirm(context, session_id)
+        elif stage == "awaiting_outline_for_visual":
+            result = await self._handle_outline_for_visual(context, session_id)
+        elif stage == "awaiting_collage_for_pages":
+            result = await self._handle_collage_for_pages(context, session_id)
+        elif stage == "awaiting_page_info_for_step3":
+            result = await self._handle_page_info_for_step3(context, session_id)
+        elif stage == "awaiting_page_image_for_editable_ppt":
+            result = await self._handle_page_image_for_editable_ppt(context, session_id)
+        elif stage == "visual_direction":
+            result = await self._handle_visual_direction_confirm(context, session_id)
+        elif stage == "entry3_ready":
+            result = await self._handle_entry3_ready(context, session_id)
+        elif stage == "awaiting_visual_choice":
+            result = self._handle_visual_choice(context, session_id)
+        elif stage == "awaiting_step3_start":
+            result = self._ack_step3_start(session_id)
+        elif stage in {"generating_visual_direction", "generating_single_pages"}:
+            result = self._return_generation_status(session_id)
+        elif stage == "awaiting_editable_ppt_scope":
+            result = self._handle_editable_ppt_scope(context, session_id)
+        else:
+            result = self._show_entry_menu(session_id)
 
-        return self._show_entry_menu(session_id)
+        # Persist session to DB after every state change
+        current = _sessions.get(session_id)
+        if current:
+            await _helper.save(session_id, current)
+
+        return result
 
     async def execute_stream(self, context: SkillContext):
         session_id = context.session_id or "default"
@@ -370,10 +388,293 @@ class PPTMakerSkill(BaseSkill):
         )
 
     async def _handle_page_image_for_editable_ppt(self, context: SkillContext, session_id: str) -> SkillResult:
-        if not context.uploaded_files and len(context.user_message.strip()) <= 20:
-            return SkillResult(success=True, message="请上传某一页高清 PPT 风格图，并说明需要还原成单页 PPTX 还是加入现有 PPT。")
-        _sessions[session_id] = {"stage": "step4_ready", "entry_choice": "4", "uploaded_files": context.uploaded_files}
-        return SkillResult(success=True, message="已收到高清 PPT 风格图。当前可先生成可下载 PPTX；更深度的文字可编辑重建需继续接入。")
+        session = _sessions.get(session_id, {})
+        msg = context.user_message.strip().lower()
+
+        # 1. User uploads images → store and show conversion options
+        if context.uploaded_files:
+            stored = list(session.get("uploaded_page_images", []))
+            for f in context.uploaded_files:
+                path = f.get("path", "")
+                if path and path not in stored:
+                    stored.append(path)
+            _sessions[session_id] = {**session, "uploaded_page_images": stored, "stage": "awaiting_page_image_for_editable_ppt"}
+            return self._show_conversion_options(session_id, stored)
+
+        # 2. Get stored images
+        stored = session.get("uploaded_page_images", [])
+
+        # 3. User picks conversion mode
+        # PRECISE / VERIFIED / OBJECT — local object-first reconstruction.
+        if msg in ("precise", "verified", "verify", "object", "objects", "本地对象", "对象化", "精确重建", "高仿", "高仿真", "验证模式"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_precise_pptx(session_id, stored)
+
+        # LAYOUT — fast layout-aware
+        if msg in ("layout", "布局"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_layout_pptx(session_id, stored)
+
+        # CODEX
+        if msg in ("codex", "ai生成", "ai视觉"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_codex_pptx(session_id, stored)
+
+        # AGNES — AI layout understanding
+        if msg in ("agnes", "ai布局", "智能布局"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_agnes_pptx(session_id, stored)
+
+        # DECKWEAVER — full deckweaver pipeline (ENABLE_NATIVE_OUTLINE_SHAPES=True)
+        if msg in ("deckweaver", "dw", "dw布局", "原生布局"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_deckweaver_pptx(session_id, stored)
+
+        # BATCH — process all uploaded images into a single combined PPTX
+        if msg in ("batch", "批量", "批量转换", "合成", "合并"):
+            if not stored:
+                return self._ask_upload_or_format()
+            if len(stored) < 2:
+                return SkillResult(success=False, message="批量转换需要至少上传 2 张图片。请继续上传。")
+            return await self._generate_batch_pptx(session_id, stored)
+
+        # VBA
+        if msg in ("vba", "宏代码"):
+            if not stored:
+                return self._ask_upload_or_format()
+            return await self._generate_vba(session_id, stored)
+
+        # SVG / DRAWIO
+        if msg in ("svg",):
+            return await self._generate_svg_from_stored(session_id, session)
+        if msg in ("drawio", "draw.io"):
+            return await self._generate_drawio_from_stored(session_id, session)
+
+        # Generic confirm
+        if self._is_confirm(context.user_message):
+            if not stored:
+                return self._ask_upload_or_format()
+            # Default to PRECISE for best quality
+            return await self._generate_precise_pptx(session_id, stored)
+
+        # Exit
+        if msg in ("退出", "exit", "quit"):
+            _sessions[session_id] = {**session, "stage": None}
+            return SkillResult(success=True, message="已退出图片转 PPTX。你可以继续其他操作。")
+
+        # Fallback: ask to upload or pick a mode
+        if not stored:
+            return self._ask_upload_or_format()
+        return self._show_conversion_options(session_id, stored)
+
+    # ── Helper methods ──
+
+    def _show_conversion_options(self, session_id: str, stored: list[str]) -> SkillResult:
+        lines = [
+            f"已收到 {len(stored)} 张图片。请选择转换方式：",
+            "",
+            "**🥇 OBJECT / VERIFIED** — 本地对象化精确重建（推荐，较慢）",
+            "- OCR + 文字擦除 + 对象提取 + 原生形状 + 可编辑文本",
+            "- 启用 PPT 渲染预览和候选字号校准，不依赖大模型",
+            "",
+            "**🥈 LAYOUT** — 快速布局（~30s）",
+            "- DeckWeaver 架构，文字可编辑",
+            "",
+            "**🥉 CODEX** — AI 高仿真（需 GPT-5.5）",
+            "",
+            "**其他：VBA / SVG / DRAWIO / DECKWEAVER**",
+            "",
+            "回复 **object** / **verified** / **precise** 使用高质量本地管线；回复 **layout** / **deckweaver** 使用不同架构",
+            "也支持 **codex** / **agnes** / **vba** / **svg** / **drawio**",
+            "也可继续上传图片。输入 **退出** 结束。",
+        ]
+        return SkillResult(success=True, message="\n".join(lines),
+                          data={"skill": self.name, "stage": "awaiting_page_image_for_editable_ppt"})
+
+    def _ask_upload_or_format(self) -> SkillResult:
+        return SkillResult(
+            success=True,
+            message="请上传高清 PPT 视觉稿图片，然后回复 **object** / **verified** / **precise** / **layout** / **codex** / **vba** 选择转换方式。")
+
+    async def _generate_precise_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        """PRECISE pipeline: full reconstruction with COM calibration."""
+        if not image_paths:
+            return SkillResult(success=False, message="请先上传图片。")
+        from app.services.local_object_reconstruction import PIPELINE_VERSION, reconstruct
+
+        output_dir = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "outputs"))
+        results, errors = [], []
+        for path in image_paths:
+            if not os.path.exists(path):
+                errors.append(f"{os.path.basename(path)}：文件不存在"); continue
+            try:
+                r = await reconstruct(
+                    path,
+                    session_id=session_id,
+                    output_dir=output_dir,
+                    render_preview=True,
+                    max_calibration_passes=3,
+                )
+            except Exception as e:
+                logger.exception("PRECISE failed"); r = {"error": str(e)}
+            (results if not r.get("error") else errors).append(r if not r.get("error") else None)
+            if r.get("error"):
+                errors.append(f"{os.path.basename(path)}：{r['error']}")
+
+        if not results:
+            return SkillResult(success=False, message="PRECISE 重建失败：\n- " + "\n- ".join(filter(None, errors)))
+
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        lines = [f"## PRECISE 精确重建完成 ({PIPELINE_VERSION})", ""]
+        for idx, r in enumerate(results):
+            dl = f"{base_url}/api/skills/download/{r['filename']}"
+            lines.append(f"### 第 {idx+1} 页" if len(results) > 1 else "### 结果")
+            lines.append(f"📥 [点击下载 PPTX]({dl})")
+            lines.append(f"📂 `{r.get('path', '')}`")
+            rep = r.get("report", {})
+            ed = rep.get("editable", {})
+            lines.append(f"- 文本框 {ed.get('text_boxes',0)} 个 | 形状 {ed.get('native_shapes',0)} 个 | 图片素材 {rep.get('image_assets',{}).get('visual_tiles',0)+rep.get('image_assets',{}).get('movable_objects',0)} 个")
+            qa = rep.get("visual_qa", {})
+            lines.append(f"- SSIM {qa.get('ssim','N/A')} | 文字SSIM {qa.get('text_ssim','N/A')} | 字号缩放 {qa.get('selected_font_scale',1.0)}")
+            if r.get("preview_url"):
+                lines.append(f"🖼 [预览图]({base_url}{r['preview_url']})")
+            if r.get("comparison_url"):
+                lines.append(f"🔍 [对照图]({base_url}{r['comparison_url']})")
+            lines.append("")
+        if errors:
+            lines.append("### 失败\n" + "\n".join(f"- {e}" for e in errors if e))
+        return SkillResult(success=True, message="\n".join(lines),
+                          data={"skill": self.name, "stage": "completed", "download_url": f"{base_url}/api/skills/download/{results[0]['filename']}"})
+
+    async def _generate_layout_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        """LAYOUT pipeline: DeckWeaver v5 fast reconstruction."""
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        from app.services.layout_reconstructor import reconstruct as run_layout
+        output_dir = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "outputs"))
+        r = await run_layout(image_paths[0], output_dir=output_dir, session_id=session_id, enable_shapes=True)
+        if not r: return SkillResult(success=False, message="Layout 重建失败。")
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r['filename']}"
+        msg = (f"## Layout 重建完成\n\n📥 [下载 PPTX]({dl})\n📂 `{r.get('path','')}`\n"
+               f"- 文字 {r.get('text_items',0)} | 形状 {r.get('native_shapes',0)} | 图片 {r.get('image_items',0)}\n"
+               f"- 布局 {r.get('layout_type','N/A')} | 配色 {', '.join(r.get('color_scheme',{}).get('palette',['N/A'])[:3])}")
+        return SkillResult(success=True, message=msg, data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_codex_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        from app.services.codex_pptx_service import generate_pptx
+        r = await generate_pptx(image_paths[0], session_id=session_id, output_dir=os.path.join("data","outputs"), timeout=300)
+        if not r or "error" in r:
+            return SkillResult(success=False, message=f"Codex 生成失败：{r.get('error','未知错误') if r else '生成失败'}")
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r.get('filename','output.pptx')}"
+        return SkillResult(success=True, message=f"## Codex AI PPTX\n\n📥 [下载]({dl})\n- {r.get('size',0)//1024} KB", data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_agnes_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        if not settings.agnes_api_key:
+            return SkillResult(success=False, message="未配置 Agnes API Key。")
+        from app.services.agnes_pipeline import PIPELINE_VERSION, reconstruct
+        output_dir = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "outputs"))
+        r = await reconstruct(image_paths[0], session_id=session_id, output_dir=output_dir,
+                              agnes_api_key=s.agnes_api_key, render_preview=True, max_calibration_passes=2)
+        if r.get("error"): return SkillResult(success=False, message=f"Agnes 失败：{r['error']}")
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r['filename']}"
+        rep = r.get("report", {})
+        ag = rep.get("agnes", {})
+        msg = (f"## Agnes 智能布局 ({PIPELINE_VERSION})\n\n📥 [下载 PPTX]({dl})\n📂 `{r.get('path','')}`\n"
+               f"- 布局 {ag.get('layout_type','?')} | 风格 {ag.get('visual_style','?')} | {ag.get('element_count',0)} 元素\n"
+               f"- 文本框 {rep.get('editable',{}).get('text_boxes',0)} | 形状 {rep.get('editable',{}).get('native_shapes',0)}")
+        qa = rep.get("visual_qa", {})
+        if qa.get("ssim"):
+            msg += f"\n- SSIM {qa['ssim']} | 文字SSIM {qa.get('text_ssim','N/A')}"
+        return SkillResult(success=True, message=msg, data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_deckweaver_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        """DeckWeaver pipeline with ENABLE_NATIVE_OUTLINE_SHAPES=True."""
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        from app.services.deckweaver_service import PIPELINE_VERSION, convert_image_to_pptx
+        output_dir = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "outputs"))
+        r = await convert_image_to_pptx(image_paths[0], session_id=session_id, output_dir=output_dir)
+        if r.get("error"): return SkillResult(success=False, message=f"DeckWeaver 失败：{r['error']}")
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r['filename']}"
+        rep = r.get("report", {})
+        msg = (f"## DeckWeaver 原生布局 ({PIPELINE_VERSION})\n\n"
+               f"📥 [下载 PPTX]({dl})\n📂 `{r.get('path','')}`\n"
+               f"- 文字 {rep.get('text_items', '?')} | 原生形状已启用")
+        return SkillResult(success=True, message=msg, data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_batch_pptx(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        """Batch convert all uploaded images into one combined PPTX."""
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        from app.services.batch_pptx_service import PIPELINE_VERSION, batch_convert
+        output_dir = os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+            "outputs"))
+
+        # Sort by filename for consistent ordering
+        sorted_paths = sorted(image_paths, key=lambda p: os.path.basename(p))
+        r = await batch_convert(sorted_paths, session_id=session_id, output_dir=output_dir)
+
+        if r.get("error") and not r.get("page_count"):
+            errs = "\n".join(f"- {e['page']}: {e['error']}" for e in r.get("errors", [])[:5])
+            return SkillResult(success=False, message=f"批量转换失败：\n{errs}")
+
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r['filename']}"
+        pages_done = r.get("page_count", 0)
+        pages_total = r.get("total_pages", 0)
+        errs = r.get("errors", [])
+
+        lines = [
+            f"## 批量转换完成 ({PIPELINE_VERSION})",
+            f"📥 [下载完整 PPTX ({pages_done}/{pages_total} 页)]({dl})",
+            f"📂 `{r.get('path','')}`",
+            "",
+        ]
+        for res in r.get("results", []):
+            lines.append(f"- 第 {res['page']} 页 ✅ `{res['file']}` ({res.get('text_items',0)} 个文字)")
+        if errs:
+            lines.append("")
+            lines.append("### 失败页面")
+            for e in errs:
+                lines.append(f"- 第 {e['page']} 页 ❌ `{e['file']}`：{e['error']}")
+        return SkillResult(success=True, message="\n".join(lines),
+                          data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_vba(self, session_id: str, image_paths: list[str]) -> SkillResult:
+        if not image_paths: return SkillResult(success=False, message="请先上传图片。")
+        from app.services.vba_pptx_service import analyze_and_generate_vba
+        r = await analyze_and_generate_vba(image_paths[0], session_id=session_id, output_dir=os.path.join("data","outputs"))
+        if not r: return SkillResult(success=False, message="VBA 生成失败。")
+        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        dl = f"{base_url}/api/skills/download/{r.get('filename','output.bas')}"
+        return SkillResult(success=True, message=f"## VBA 宏代码\n\n📥 [下载]({dl})\n在 PowerPoint 中 Alt+F11 导入并运行。", data={"skill": self.name, "download_url": dl, "stage": "completed"})
+
+    async def _generate_svg_from_stored(self, session_id: str, session: dict) -> SkillResult:
+        stored = session.get("uploaded_page_images", [])
+        slides = [{"index": i+1, "title": f"Slide {i+1}"} for i in range(len(stored))]
+        return await self._generate_svg_slides(session_id, slides)
+
+    async def _generate_drawio_from_stored(self, session_id: str, session: dict) -> SkillResult:
+        stored = session.get("uploaded_page_images", [])
+        slides = [{"index": i+1, "title": f"Slide {i+1}"} for i in range(len(stored))]
+        return await self._generate_drawio(session_id, "", slides)
 
     async def _collect_source_text(self, context: SkillContext) -> str:
         parts: list[str] = []
@@ -407,20 +708,28 @@ class PPTMakerSkill(BaseSkill):
         revision: str | None = None,
     ) -> SkillResult:
         system_prompt = (
-            "你是专业商业PPT策划助手。只做PPT大纲和逐页内容，不生成PPT文件。"
+            "你是专业商业PPT策划顾问，拥有10年管理咨询经验。擅长将复杂信息提炼为结构清晰、"
+            "观点鲜明的汇报材料。只做PPT大纲和逐页内容，不生成PPT文件。"
             "必须基于用户材料，不新增未经确认的数据、品牌、人物、产品或来源。"
+            "每页内容要具体充实，避免空洞的泛词，正文要点至少3-5条。"
         )
         revision_text = f"\n\n用户修改要求：\n{revision}" if revision else ""
         prompt = f"""
-请阅读以下资料，生成一份PPT大纲和逐页内容。
+请阅读以下资料，生成一份详细专业的PPT大纲和逐页内容。
 
 要求：
-1. 第一页必须是封面页。
-2. 每页必须包含：页码、页面类型、标题、核心观点、正文要点、视觉建议。
+1. 第一页必须是封面页（含主标题+副标题+日期/场合）。
+2. 每页必须包含：
+   - 页码和页面类型（封面/目录/内容/总结等）
+   - 结论式标题（一句话点明本页核心观点）
+   - 核心观点（2-3句展开说明）
+   - 正文要点（至少3-5条具体内容，每条10-30字，避免空洞泛词）
+   - 视觉建议（图表类型、配图方向、排版建议）
 3. 不要生成pptx，不要生成图片。
-4. 结构要适合正式商业汇报，标题尽量是结论式表达。
-5. 严格基于资料，不要编造未确认信息。
-6. 最后询问用户是否确认大纲，确认后再进入下一步。
+4. 结构适合正式商业汇报，逻辑清晰、层层递进。
+5. 严格基于资料，不编造未确认信息。
+6. 内容要足够详细，每页正文至少150字，给后续视觉设计提供充分素材。
+7. 最后询问用户是否确认大纲，确认后再进入下一步。
 
 资料：
 {source_text}
@@ -430,7 +739,7 @@ class PPTMakerSkill(BaseSkill):
             response = await llm_service.chat(
                 system_prompt=system_prompt,
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=4096,
+                max_tokens=8192,
                 temperature=0.3,
                 timeout=180,
                 thinking={"type": "disabled"},
@@ -503,7 +812,7 @@ Confirmed outline:
         if not exe:
             yield SkillResult(success=False, message="第二步出错了：未找到 imagegen 图片生成工具。")
             return
-        output_dir = os.path.abspath(os.path.join("data", "outputs"))
+        output_dir = str(PUBLIC_DIR)
         os.makedirs(output_dir, exist_ok=True)
         run_id = uuid.uuid4().hex[:10]
         generated: list[dict] = []
@@ -543,37 +852,39 @@ Confirmed outline:
         )
 
     async def _run_imagegen(self, exe: str, prompt: str, out_path: str, timeout: int) -> str | None:
+        """Generate image via ruizhi-imagegen CLI, with API fallback on failure."""
+        # ── Primary: ruizhi-imagegen CLI ──
+        if exe and os.path.exists(exe):
+            try:
+                completed = await asyncio.to_thread(
+                    subprocess.run,
+                    [exe, "generate", "--prompt", prompt, "--out", out_path,
+                     "--quality", "high", "--size", "auto", "--force"],
+                    capture_output=True,
+                    text=True, encoding="utf-8", errors="replace",
+                    timeout=timeout,
+                    env=self._imagegen_env(),
+                )
+            except subprocess.TimeoutExpired:
+                pass  # fall through to fallback
+            except Exception:
+                pass  # fall through to fallback
+            else:
+                if completed.returncode == 0 and os.path.exists(out_path):
+                    return None  # success
+
+        # ── Fallback: unified image_gen_service (Agnes / OpenAI / Ruizhi API) ──
+        logger.info("PPT maker: CLI failed or unavailable, falling back to image_gen_service")
         try:
-            completed = await asyncio.to_thread(
-                subprocess.run,
-                [
-                    exe,
-                    "generate",
-                    "--prompt",
-                    prompt,
-                    "--out",
-                    out_path,
-                    "--quality",
-                    "high",
-                    "--size",
-                    "auto",
-                    "--force",
-                ],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout,
-                env=self._imagegen_env(),
-            )
-        except subprocess.TimeoutExpired:
-            return "调用 imagegen 超时。"
+            from app.services.image_gen_service import generate_image, ImageGenResult
+
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            result = await generate_image(prompt, out_path, size="1792x1024")
+            if result.success:
+                return None  # success
+            return f"CLI 和 API 均失败。API 错误: {result.error}"
         except Exception as exc:
-            return f"调用 imagegen 失败：{exc.__class__.__name__}: {str(exc) or '无详细错误文本'}"
-        if completed.returncode != 0 or not os.path.exists(out_path):
-            err = ((completed.stderr or "") + "\n" + (completed.stdout or "")).strip()[-1600:]
-            return err or "imagegen 未返回可用输出。"
-        return None
+            return f"图片生成失败（CLI 不可用 + API 异常）: {exc}"
 
     def _parse_visual_choice(self, msg: str) -> str | None:
         compact = msg.strip().upper().replace(" ", "")
@@ -698,82 +1009,8 @@ Confirmed outline:
             slides.append({"index": idx, "title": title, "content": chunk[:3000]})
         return slides
 
-    def _style_text_for_choice(self, choice: str) -> str:
-        styles = {
-            "A": "premium strategy consulting report, bright background, precise grid, restrained accent colors",
-            "B": "advanced technology keynote, deep clean background, luminous data accents, high-end AI atmosphere",
-            "C": "refined editorial business deck, sophisticated image use, generous whitespace, elegant information blocks",
-            "REF": "user-provided collage master — faithfully replicate the exact visual style, layout, color palette, and text hierarchy shown in the uploaded reference collage",
-        }
-        return styles.get(choice, styles["A"])
-
-    def _build_visual_system_description(self, choice: str) -> str:
-        """Build a detailed visual system spec so imagegen can replicate the collage style."""
-        systems = {
-            "REF": """The user has uploaded a collage as the definitive visual master. Replicate every aspect of the collage's visual system exactly as it appears:
-Background: exactly match the collage's background style, color, and any textures or gradients present.
-Font system: exactly match the collage's font hierarchy, sizes, weights, and colors for titles, subtitles, body text, and data callouts.
-Color palette: exactly match the collage's color scheme — primary, secondary, accent colors, and their usage across elements.
-Charts: exactly match the collage's chart style — type, color, line weight, grid presence, data label position, and legend placement.
-Icons: exactly match the collage's icon style — geometric vs. organic, line weight, filled vs. outlined, color treatment.
-Cards/modules: exactly match the collage's card border style, fill opacity, corner radius, internal padding, and shadow if present.
-Margins: exactly match the collage's page margins and content area boundaries.
-Whitespace: exactly match the collage's spacing rhythm between elements and sections.
-Footer: exactly match the collage's footer treatment — separator line, page number position/style, any section labels.
-Page density: exactly match the collage's information density — number of content blocks per page, visual weight distribution.
-CRITICAL: Do NOT apply any preset style. The uploaded collage IS the only style reference.""",
-            "A": """Background: clean white to very light warm gray (#F8F7F4 to #FFFFFF). No gradients on standard pages.
-Font system: modern sans-serif (similar to Inter/Source Han Sans). Title 28-32px bold, dark charcoal (#1A1A1A). Section headings 14-16px medium, muted gray (#4A4A4A). Body text 10-12px regular (#333333). Key numbers in 36-48px display weight with indigo accent (#3B5998).
-Color palette: primary indigo/blue (#3B5998), secondary warm gray (#9E9E9E), accent coral (#E8734A) used sparingly for emphasis.
-Charts: flat design, thin gray gridlines (0.5px #E0E0E0), consistent 10px axis labels, data labels placed directly on chart elements. Bar charts with rounded tops (2px radius). Line charts with 2px stroke weight.
-Icons: simple geometric line icons, 1.5-2px consistent stroke, grayscale (#666666) or matching indigo accent.
-Cards/modules: 1px #E8E8E8 borders, optional 2-3% gray fill (#F5F5F5), 6px border radius, 16px internal padding.
-Margins: 60px left/right, 50px top, 70px bottom (for page number zone).
-Whitespace: 20-28px gap between modules, clear visual grouping by proximity.
-Footer: thin 1px #E0E0E0 separator line at bottom, page number right-aligned 9px #999999, optional section label left-aligned.
-Page density: medium — 1 clear focal point per page, 3-5 content blocks maximum.""",
-            "B": """Background: deep dark base (#0D1117 to #161B22), subtle grid or dot pattern overlay at 3-5% opacity.
-Font system: geometric sans-serif (similar to SF Pro Display/DIN). Title 30-38px bold, white (#FFFFFF) or electric blue (#58A6FF). Section labels 12-14px uppercase letter-spacing 2px, cyan accent (#39D2C0). Body 10-11px light gray (#C9D1D9). Key metrics in 40-56px bold display, gradient from cyan to electric blue.
-Color palette: deep background (#0D1117), primary electric blue (#58A6FF), accent cyan (#39D2C0), data highlight amber (#F0883E), subtle purple for secondary data (#BC8CFF).
-Charts: dark surface with luminous data elements. Bar charts with subtle inner glow. Line charts with 2px stroke + subtle outer glow (matching data color). Grid lines at 8% white opacity. Data labels in white 10px.
-Icons: thin luminous line icons (1.5px stroke), cyan or electric blue (#58A6FF), subtle glow effect.
-Cards/modules: semi-transparent panels (8-15% white overlay) on dark background, 1px border at 15-20% white, 10px border radius, 20px padding.
-Margins: 55px left/right, 45px top, 65px bottom.
-Whitespace: 24-32px between modules, dramatic negative space on dark background.
-Footer: minimal footer, thin gradient separator line (cyan to transparent), page number in cyan 9px, subtle glow.
-Page density: medium-high — data-rich but clean, strong visual hierarchy, 4-6 blocks per page.""",
-            "C": """Background: warm off-white or very light cream (#FAF9F6), occasional subtle paper texture at 2% opacity for depth.
-Font system: refined serif for titles (similar to Source Han Serif/Noto Serif CJK), modern sans-serif for body. Title 24-28px regular weight, deep brown (#2C2416). Section labels 11-13px with 3px letter-spacing, warm taupe (#8B7D6B). Body 10-12px with 1.6x line height, warm charcoal (#3D3226). Numbers in 32-40px light weight.
-Color palette: warm neutral base (#FAF9F6), deep brown/charcoal (#2C2416), warm taupe (#8B7D6B), accent muted burgundy (#8B3A3A) or deep olive (#4A6741), occasional gold accent (#C4A747) for highlights.
-Charts: refined minimal style, very thin lines (0.5-1px), muted color differentiation (2-3 analogous warm tones), integrated serif typography in labels, minimal to no grid lines.
-Icons: delicate thin line icons (1-1.5px stroke), warm taupe (#8B7D6B) or matching the neutral palette.
-Cards/modules: very subtle — thin rules (0.5px #D9D3C9), occasional 2-3% warm gray fill, 12-16px border radius, 20-24px padding.
-Margins: generous 72-80px left/right, 60px top, 80px bottom.
-Whitespace: abundance — the defining characteristic. 32-48px between sections. Each element has breathing room.
-Footer: nearly invisible, page number in very light warm gray (#C4BDB2) 8px, minimal or no separator line.
-Page density: low to medium — one clear statement per page, maximum 3 content blocks, surrounded by generous space.""",
-        }
-        return systems.get(choice, systems["A"])
-
-    def _detect_page_layout(self, content: str) -> str:
-        """Detect likely page layout type from content structure for better imagegen prompts."""
-        content_lower = content.lower()
-        if any(kw in content_lower for kw in ["封面", "title", "标题页", "cover"]):
-            return "COVER slide: centered title with subtitle, minimal content, large title text, company/date line at bottom. Strong visual impact, most spacious of all pages."
-        if any(kw in content_lower for kw in ["目录", "agenda", "目录页", "contents"]):
-            return "AGENDA/TOC slide: numbered list of sections, possibly with brief descriptions. Clean list format with consistent spacing."
-        if any(kw in content_lower for kw in ["图表", "chart", "graph", "数据", "趋势", "对比", "占比", "%"]):
-            return "DATA/CHART slide: chart or graph as the dominant visual element, with supporting title and 2-3 key insight callouts. Data visualization first, text second."
-        if any(kw in content_lower for kw in ["对比", "比较", "vs", "方案", "优劣"]):
-            return "COMPARISON slide: two-column or multi-column layout comparing options/scenarios. Clear visual separation between columns."
-        if any(kw in content_lower for kw in ["流程", "步骤", "阶段", "process", "step", "timeline", "时间线"]):
-            return "PROCESS/TIMELINE slide: horizontal or vertical flow showing sequential steps or phases. Connected nodes with brief descriptions."
-        if any(kw in content_lower for kw in ["总结", "下一步", "感谢", "谢谢", "thank", "summary", "conclusion"]):
-            return "SUMMARY/CLOSING slide: key takeaways or call to action. Clean and impactful, fewer elements."
-        if any(kw in content_lower for kw in ["概述", "背景", "目标", "现状"]):
-            return "OVERVIEW slide: title + 2-4 text blocks or cards introducing a topic. Moderate density, clear information hierarchy."
-        # Default
-        return "CONTENT slide: standard business slide with title, 2-4 key points or text blocks, possible supporting visual. Balanced layout with clear hierarchy."
+    # _style_text_for_choice, _build_visual_system_description, _detect_page_layout
+    # moved to visual_systems.py — imported via `from . import visual_systems`
 
     async def _start_step3_single_pages(self, session_id: str, choice: str):
         session = _sessions.get(session_id, {})
@@ -809,12 +1046,12 @@ Page density: low to medium — one clear statement per page, maximum 3 content 
         if not exe:
             yield SkillResult(success=False, message="第 3 步出错了：未找到 imagegen 图片生成工具，无法生成逐页高清图。")
             return
-        output_dir = os.path.abspath(os.path.join("data", "outputs"))
+        output_dir = str(PUBLIC_DIR)
         os.makedirs(output_dir, exist_ok=True)
         run_id = uuid.uuid4().hex[:10]
         page_images: list[dict] = []
-        style = self._style_text_for_choice(choice)
-        visual_system = self._build_visual_system_description(choice)
+        style = visual_systems.style_text_for_choice(choice)
+        visual_system = visual_systems.build_visual_system(choice)
         total = len(slides)
         session = _sessions.get(session_id, {})
         selected_visual = session.get("selected_visual") or {}
@@ -829,7 +1066,7 @@ Page density: low to medium — one clear statement per page, maximum 3 content 
             content = slide.get("content", "")
             page_type = slide.get("title", f"Page {idx}")
             # Detect page type for layout hint
-            layout_hint = self._detect_page_layout(content)
+            layout_hint = visual_systems.detect_page_layout(content)
 
             prompt = f"""Design task: Reproduce page {idx} of {total} from a confirmed PPT collage master as a standalone high-resolution 16:9 slide.
 
@@ -914,7 +1151,7 @@ CRITICAL RULES:
         from pptx import Presentation
         from pptx.util import Inches
 
-        output_dir = os.path.abspath(os.path.join("data", "outputs"))
+        output_dir = str(PUBLIC_DIR)
         os.makedirs(output_dir, exist_ok=True)
         filename = f"ppt_maker_{session_id[:8]}_{uuid.uuid4().hex[:10]}.pptx"
         out_path = os.path.join(output_dir, filename)

@@ -23,7 +23,7 @@ from urllib.parse import urlencode, urlparse
 from app.config import settings
 logger = logging.getLogger(__name__)
 FEISHU_API_BASE = 'https://open.feishu.cn/open-apis'
-FEISHU_DEFAULT_OAUTH_SCOPE = 'wiki:wiki:readonly docx:document:readonly'
+FEISHU_DEFAULT_OAUTH_SCOPE = 'wiki:wiki:readonly docx:document:readonly minutes:minutes:readonly minutes:minutes.transcript:export minutes:minutes.basic:read'
 
 def _get_windows_proxy() -> str | None:
     """Read the Windows system proxy setting from the registry."""
@@ -331,7 +331,7 @@ class FeishuService:
         if candidate.startswith('http'):
             parsed = urlparse(candidate)
             parts = [p for p in parsed.path.split('/') if p]
-            for kind in ('docx', 'docs', 'doc', 'wiki'):
+            for kind in ('docx', 'docs', 'doc', 'wiki', 'minutes'):
                 if kind in parts:
                     idx = parts.index(kind)
                     if idx + 1 < len(parts):
@@ -352,6 +352,63 @@ class FeishuService:
         except Exception:
             data = {'raw_text': resp.text[:1000]}
         return {'label': 'wiki_get_node', 'path': '/wiki/v2/spaces/get_node', 'http_status': resp.status_code, 'code': data.get('code'), 'msg': data.get('msg') or data.get('message'), 'data': data.get('data') if isinstance(data, dict) else None}
+
+    # ── Feishu Minutes (飞书妙记) API ──────────────────────────────────────
+
+    async def get_minute_info(self, minute_token: str, access_token: str) -> dict:
+        """Get basic info about a Feishu minute/meeting recording.
+
+        API: GET /minutes/v1/minutes/{minute_token}
+        """
+        client = await self._get_client()
+        path = f'/minutes/v1/minutes/{minute_token}'
+        resp = await client.get(f'{FEISHU_API_BASE}{path}', headers={'Authorization': f'Bearer {access_token}'})
+        try:
+            data = resp.json()
+        except Exception:
+            data = {'raw_text': resp.text[:1000]}
+        return {'label': 'minutes_get_info', 'path': path, 'http_status': resp.status_code, 'code': data.get('code'), 'msg': data.get('msg') or data.get('message'), 'data': data.get('data') if isinstance(data, dict) else None}
+
+    async def get_minute_transcripts(self, minute_token: str, access_token: str, page_token: str = '', page_size: int = 100) -> dict:
+        """Get transcripts (speaker turns) of a Feishu minute.
+
+        API: GET /minutes/v1/minutes/{minute_token}/transcript
+        Returns text/plain – the full transcript as raw text.
+        """
+        client = await self._get_client()
+        path = f'/minutes/v1/minutes/{minute_token}/transcript'
+        params: dict[str, str | int] = {'page_size': page_size}
+        if page_token:
+            params['page_token'] = page_token
+        resp = await client.get(f'{FEISHU_API_BASE}{path}', headers={'Authorization': f'Bearer {access_token}'}, params=params)
+        content_type = resp.headers.get('content-type', '')
+        result: dict = {'label': 'minutes_transcripts', 'path': path, 'http_status': resp.status_code, 'code': None, 'msg': None, 'data': None}
+        if resp.status_code == 200 and 'text/plain' in content_type:
+            result['ok'] = True
+            result['text'] = resp.text
+        else:
+            try:
+                data = resp.json()
+            except Exception:
+                data = {'raw_text': resp.text[:1000]}
+            result['code'] = data.get('code')
+            result['msg'] = data.get('msg') or data.get('message')
+            result['data'] = data.get('data') if isinstance(data, dict) else None
+        return result
+
+    async def get_minute_minutes(self, minute_token: str, access_token: str) -> dict:
+        """Get the AI-generated minutes/summary of a Feishu minute.
+
+        API: GET /minutes/v1/minutes/{minute_token}/minutes
+        """
+        client = await self._get_client()
+        path = f'/minutes/v1/minutes/{minute_token}/minutes'
+        resp = await client.get(f'{FEISHU_API_BASE}{path}', headers={'Authorization': f'Bearer {access_token}'})
+        try:
+            data = resp.json()
+        except Exception:
+            data = {'raw_text': resp.text[:1000]}
+        return {'label': 'minutes_minutes', 'path': path, 'http_status': resp.status_code, 'code': data.get('code'), 'msg': data.get('msg') or data.get('message'), 'data': data.get('data') if isinstance(data, dict) else None}
 
     async def get_doc_content_debug(self, text_or_token: str, user_access_token: str | None=None) -> dict:
         """Read Feishu document content with debug metadata for skill testing."""
@@ -424,10 +481,61 @@ class FeishuService:
                 result['ok'] = bool(content)
                 result['success_endpoint'] = label
                 return result
+
+        # ── Minutes / 飞书妙记 ──
+        # Try minutes API for explicit 'minutes' tokens, or as a last-resort
+        # fallback for 'unknown' tokens that failed docx/docs/wiki attempts.
+        if doc_type in {'minutes', 'unknown'}:
+            min_info = await self.get_minute_info(doc_token, token)
+            result['attempts'].append({k: v for k, v in min_info.items() if k != 'data'})
+            if min_info.get('http_status') == 200 and min_info.get('code') == 0:
+                minute_data = (min_info.get('data') or {}).get('minute') or {}
+                title = minute_data.get('title') or ''
+                meeting_time = minute_data.get('meeting_time') or ''
+                create_time = minute_data.get('create_time') or ''
+                duration = minute_data.get('duration') or ''
+                result['minute_info'] = {'title': title, 'meeting_time': meeting_time, 'create_time': create_time, 'duration': duration}
+
+                # Fetch transcript (text/plain format)
+                transcript_text = ''
+                t_result = await self.get_minute_transcripts(doc_token, token)
+                result['attempts'].append({k: v for k, v in t_result.items() if k not in ('data', 'text')})
+                if t_result.get('ok'):
+                    transcript_text = t_result.get('text') or ''
+
+                # Build combined content
+                parts: list[str] = []
+                if title:
+                    parts.append(f"会议标题：{title}")
+                if meeting_time:
+                    parts.append(f"会议时间：{meeting_time}")
+                if duration:
+                    try:
+                        secs = int(duration) // 1000
+                        mins, secs = divmod(secs, 60)
+                        hours, mins = divmod(mins, 60)
+                        parts.append(f"会议时长：{hours}时{mins}分{secs}秒" if hours else f"会议时长：{mins}分{secs}秒")
+                    except (ValueError, TypeError):
+                        parts.append(f"会议时长：{duration}ms")
+                if transcript_text.strip():
+                    parts.append('')
+                    parts.append('## 会议转写')
+                    parts.append('')
+                    parts.append(transcript_text.strip())
+
+                content = '\n'.join(parts).strip()
+                if content:
+                    result['content'] = content
+                    result['ok'] = True
+                    result['success_endpoint'] = 'minutes'
+                    return result
+
         return result
 
     async def get_doc_content_debug_with_fallback(self, text_or_token: str, user_access_token: str | None=None) -> dict:
         """Try app identity first, then fall back to user access token if provided."""
+        import time as _t; _t0 = _t.monotonic()
+        ref = self.extract_doc_ref(text_or_token)
         if not user_access_token:
             result = await self.get_doc_content_debug(text_or_token)
             result['fallback'] = {'strategy': 'tenant_only', 'tenant_attempted': True, 'user_attempted': False, 'used': False}

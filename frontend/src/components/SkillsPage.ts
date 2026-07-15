@@ -1,51 +1,51 @@
+/** Skills Center — lists all registered skills with triggers, descriptions, and usage examples. */
+
 import { apiGet } from '../services/api';
 import type { SkillInfo } from '../types';
-
-const t = {
-  title: '\u6280\u80fd\u4e2d\u5fc3',
-  subtitle: '\u6570\u5b57\u5206\u8eab\u5df2\u5b89\u88c5\u7684\u5bf9\u8bdd\u6280\u80fd\uff0c\u5728\u5bf9\u8bdd\u4e2d\u8f93\u5165\u89e6\u53d1\u8bcd\u5373\u53ef\u81ea\u52a8\u8c03\u7528\u3002',
-  loading: '\u52a0\u8f7d\u4e2d...',
-  empty: '\u6682\u672a\u5b89\u88c5\u4efb\u4f55\u6280\u80fd',
-  failed: '\u65e0\u6cd5\u52a0\u8f7d\u6280\u80fd\u5217\u8868',
-  trigger: '\u89e6\u53d1\u8bcd',
-  keyword: '\u5173\u952e\u8bcd',
-  enabled: '\u5df2\u542f\u7528',
-  howToTitle: '\u5982\u4f55\u89e6\u53d1\u6280\u80fd',
-  howToBody: '\u5728\u5bf9\u8bdd\u6846\u91cc\u76f4\u63a5\u8f93\u5165\u5bf9\u5e94\u8bed\u53e5\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u8bc6\u522b\u5e76\u8fdb\u5165\u5bf9\u5e94\u6280\u80fd\u6d41\u7a0b\u3002',
-  howToNote: '\u98de\u4e66\u77e5\u8bc6\u5e93\u5bfc\u5165\u5df2\u79fb\u5230\u77e5\u8bc6\u5e93\u9875\u9762\uff0c\u4e0d\u518d\u4f5c\u4e3a\u5bf9\u8bdd\u6280\u80fd\u89e6\u53d1\u3002',
-};
 
 export function renderSkillsPage(): HTMLElement {
   const container = document.createElement('div');
   container.className = 'skills-page';
+  container.style.cssText = 'padding:24px 32px;overflow-y:auto;max-width:1000px;margin:0 auto;width:100%;height:100%;';
+
   container.innerHTML = `
-    <div class="sk-header">
+    <div class="sk-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
       <div>
-        <h2>${t.title}</h2>
-        <p class="sk-subtitle">${t.subtitle}</p>
+        <h2 style="font-size:20px;font-weight:700;color:#111827;margin:0;">⚡ 技能中心</h2>
+        <p style="color:#9ca3af;font-size:13px;margin:4px 0 0;">已安装的对话技能，在聊天中输入触发词即可自动调用</p>
       </div>
+      <button id="sk-refresh-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#6b7280;cursor:pointer;font-size:13px;">
+        🔄 刷新
+      </button>
     </div>
 
-    <div id="sk-list" class="sk-list">
-      <div class="sk-loading">${t.loading}</div>
+    <div id="sk-list" style="display:flex;flex-direction:column;gap:12px;">
+      <div style="text-align:center;color:#9ca3af;padding:24px;font-size:14px;">加载中...</div>
     </div>
 
-    <div class="sk-section">
-      <h3>${t.howToTitle}</h3>
-      <div class="sk-howto">
-        <p>${t.howToBody}</p>
-        <ul>
-          <li><strong>PPT</strong>: \u5e2e\u6211\u505a PPT / \u6839\u636e\u8fd9\u4e2a\u6587\u6863\u751f\u6210 PPT</li>
-          <li><strong>\u5468\u62a5</strong>: \u5e2e\u6211\u5199\u5468\u62a5 / \u751f\u6210\u5468\u62a5</li>
-          <li><strong>\u98de\u4e66\u5355\u7bc7\u9605\u8bfb</strong>: \u8bfb\u53d6\u98de\u4e66\u6587\u6863 https://xxx.feishu.cn/docx/xxxxx</li>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">
+      <h3 style="font-size:15px;font-weight:600;color:#374151;margin:0 0 10px;">💡 如何使用技能</h3>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;line-height:1.6;">
+        <p style="margin:0 0 8px;">在聊天框直接输入触发词，系统会自动识别并进入对应技能流程：</p>
+        <ul style="margin:6px 0 0;padding-left:18px;">
+          <li style="margin-bottom:4px;"><strong>周报</strong>：写周报 / 生成周报 / 帮我写周报</li>
+          <li style="margin-bottom:4px;"><strong>PPT制作</strong>：做PPT / 生成PPT / 制作PPT</li>
+          <li style="margin-bottom:4px;"><strong>图片生成</strong>：生成图片 / 画一张 / AI画图</li>
+          <li style="margin-bottom:4px;"><strong>飞书文档</strong>：读取飞书文档 + 链接</li>
+          <li style="margin-bottom:4px;"><strong>飞书妙记</strong>：读取妙记 / 会议纪要 + 链接</li>
         </ul>
-        <p class="sk-howto-note">${t.howToNote}</p>
+        <p style="margin:8px 0 0;color:#78350f;font-size:12px;">💡 飞书知识库导入已迁移到知识库页面；周报和图片生成也可直接使用独立功能页面。</p>
       </div>
     </div>
   `;
 
   loadSkills(container);
+  bindEvents(container);
   return container;
+}
+
+function bindEvents(container: HTMLElement): void {
+  container.querySelector('#sk-refresh-btn')?.addEventListener('click', () => loadSkills(container));
 }
 
 async function loadSkills(container: HTMLElement): Promise<void> {
@@ -55,65 +55,80 @@ async function loadSkills(container: HTMLElement): Promise<void> {
   try {
     const skills = await apiGet<SkillInfo[]>('/skills/list');
     if (!skills.length) {
-      list.innerHTML = `<div class="sk-empty">${t.empty}</div>`;
+      list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:24px;font-size:14px;">暂无可用技能</div>';
       return;
     }
 
-    list.innerHTML = skills.map((skill) => `
-      <div class="sk-card">
-        <div class="sk-card-icon">${getSkillIcon(skill.name)}</div>
-        <div class="sk-card-body">
-          <div class="sk-card-name">${getSkillDisplayName(skill.name)}</div>
-          <div class="sk-card-desc">${esc(skill.description)}</div>
-          <div class="sk-card-triggers">
-            <span class="sk-trigger-label">${t.trigger}</span>
-            ${skill.triggers.map(trigger => `<span class="sk-trigger-tag">${esc(trigger)}</span>`).join('')}
+    list.innerHTML = skills.map((skill) => {
+      const info = getSkillInfo(skill.name);
+      return `
+      <div style="display:flex;align-items:flex-start;gap:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:16px;">
+        <div style="font-size:24px;flex-shrink:0;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#eef2ff;border-radius:10px;">${info.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:#1f2937;margin-bottom:2px;">${info.name}</div>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:8px;">${esc(skill.description)}</div>
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px;">
+            <span style="font-size:11px;color:#9ca3af;margin-right:2px;">触发词</span>
+            ${skill.triggers.map(t => `<span style="display:inline-block;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:6px;font-size:11px;">${esc(t)}</span>`).join('')}
           </div>
           ${(skill.keywords ?? []).length ? `
-          <div class="sk-card-keywords">
-            <span class="sk-trigger-label">${t.keyword}</span>
-            ${(skill.keywords ?? []).map(keyword => `<span class="sk-trigger-tag sk-trigger-tag-secondary">${esc(keyword)}</span>`).join('')}
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px;">
+            <span style="font-size:11px;color:#9ca3af;margin-right:2px;">关键词</span>
+            ${(skill.keywords ?? []).map(k => `<span style="display:inline-block;background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:6px;font-size:11px;">${esc(k)}</span>`).join('')}
           </div>` : ''}
-          <div class="sk-card-example">${esc(getSkillExample(skill.name))}</div>
+          <div style="margin-top:8px;color:#4f46e5;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:7px 9px;font-size:12px;">${info.example}</div>
         </div>
-        <div class="sk-card-status">
-          <span class="sk-badge sk-badge-active">${t.enabled}</span>
+        <div style="flex-shrink:0;">
+          <span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#ecfdf5;color:#065f46;">已启用</span>
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   } catch {
-    list.innerHTML = `<div class="sk-empty">${t.failed}</div>`;
+    list.innerHTML = '<div style="text-align:center;color:#ef4444;padding:24px;font-size:14px;">加载失败，请点击刷新重试</div>';
   }
 }
 
-function getSkillDisplayName(name: string): string {
-  const names: Record<string, string> = {
-    weekly_report: '\u5468\u62a5\u751f\u6210',
-    ppt_maker: 'PPT \u5236\u4f5c',
-    feishu_doc_reader: '\u98de\u4e66\u6587\u6863\u9605\u8bfb',
-    chat_analyzer: '\u5bf9\u8bdd\u5206\u6790',
-  };
-  return names[name] || name;
+// ── Skill metadata ────────────────────────────────────────────
+
+interface SkillMeta {
+  name: string;
+  icon: string;
+  example: string;
 }
 
-function getSkillExample(name: string): string {
-  const examples: Record<string, string> = {
-    weekly_report: '\u793a\u4f8b\uff1a\u5e2e\u6211\u5199\u5468\u62a5',
-    ppt_maker: '\u793a\u4f8b\uff1a\u5e2e\u6211\u505a PPT\uff0c\u7136\u540e\u4e0a\u4f20\u8d44\u6599\u6216\u8f93\u5165\u5185\u5bb9',
-    feishu_doc_reader: '\u793a\u4f8b\uff1a\u8bfb\u53d6\u98de\u4e66\u6587\u6863 https://xxx.feishu.cn/docx/xxxxx',
-    chat_analyzer: '\u540e\u53f0\u6280\u80fd\uff1a\u81ea\u52a8\u5206\u6790\u5bf9\u8bdd\uff0c\u4e0d\u9700\u8981\u624b\u52a8\u89e6\u53d1',
+function getSkillInfo(skillName: string): SkillMeta {
+  const registry: Record<string, SkillMeta> = {
+    weekly_report: {
+      name: '周报生成',
+      icon: '📊',
+      example: '在聊天框输入「写周报」「生成周报」即可启动。也支持独立页面表单式生成。',
+    },
+    ppt_maker: {
+      name: 'PPT 制作',
+      icon: '📽',
+      example: '输入「做PPT」或「生成PPT」，上传资料或大纲，通过4步流程生成专业PPT。',
+    },
+    feishu_doc_reader: {
+      name: '飞书文档阅读',
+      icon: '📄',
+      example: '发送飞书文档/wiki链接即可读取内容，支持总结、分析、生成PPT大纲、保存到知识库。',
+    },
+    feishu_minutes_reader: {
+      name: '飞书妙记阅读',
+      icon: '🎙',
+      example: '发送飞书妙记链接即可读取会议转写文本，支持总结、提取要点、生成PPT大纲。',
+    },
+    image_gen: {
+      name: 'AI 图片生成',
+      icon: '🎨',
+      example: '输入「生成图片」「画一张」+ 描述即可生成。也支持独立页面直接生成。',
+    },
   };
-  return examples[name] || '\u5728\u5bf9\u8bdd\u6846\u8f93\u5165\u89e6\u53d1\u8bcd\u5373\u53ef\u4f7f\u7528\u3002';
-}
-
-function getSkillIcon(name: string): string {
-  const icons: Record<string, string> = {
-    weekly_report: '\u5468',
-    ppt_maker: 'PPT',
-    feishu_doc_reader: '\u98de',
-    chat_analyzer: '\u6790',
+  return registry[skillName] || {
+    name: skillName,
+    icon: '⚡',
+    example: '在聊天框中输入触发词即可使用此技能。',
   };
-  return icons[name] || '\u6280';
 }
 
 function esc(s: string): string {

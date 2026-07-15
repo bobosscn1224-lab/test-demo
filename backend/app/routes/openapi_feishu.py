@@ -205,7 +205,9 @@ async def refresh_access_token(req: FeishuRefreshTokenRequest):
 
 @router.post("/read-doc")
 async def read_doc(req: ReadFeishuDocRequest):
-    """Read Feishu document content.
+    """Read Feishu document or minutes content.
+
+    Supports: docx, docs (old doc), wiki nodes, and minutes (飞书妙记/会议纪要).
 
     Mode 1: app identity only. The app must be added as a document collaborator.
     Mode 2: userAccessToken. Reads documents that the user token can access.

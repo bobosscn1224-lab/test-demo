@@ -1,9 +1,9 @@
-﻿import { marked } from 'marked';
-import { streamChat, streamUploadChat } from '../services/chat';
+﻿import { streamChat, streamUploadChat } from '../services/chat';
 import type { StreamCallbacks } from '../services/chat';
 import { setAvatarState } from './AvatarDisplay';
 import { apiGet } from '../services/api';
 import type { Session, Message } from '../types';
+import { renderSessionPanel, getSessionId, setSessionId, highlightSession } from './SessionPanel';
 
 interface SkillInfo {
   name: string;
@@ -18,58 +18,8 @@ function esc(s: string): string {
   return d.innerHTML;
 }
 
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
-
-function formatMd(s: string): string {
-  let html = marked.parse(s) as string;
-
-  // Style inline citation badges: [1], [2] 鈫?sup badge
-  // Only replace outside <pre>/<code> tags by splitting on those blocks
-  const parts: string[] = [];
-  let remaining = html;
-  const codeBlockRe = /(<pre[^>]*>[\s\S]*?<\/pre>|<code[^>]*>[\s\S]*?<\/code>)/g;
-  let lastIdx = 0;
-  let match: RegExpExecArray | null;
-  while ((match = codeBlockRe.exec(remaining)) !== null) {
-    if (match.index > lastIdx) {
-      parts.push(remaining.slice(lastIdx, match.index));
-    }
-    parts.push(match[0]);
-    lastIdx = codeBlockRe.lastIndex;
-  }
-  if (lastIdx < remaining.length) {
-    parts.push(remaining.slice(lastIdx));
-  }
-
-  html = parts.map((part, i) => {
-    if (i % 2 === 1) return part; // skip code/pre blocks
-    // Replace [n] citations
-    let p = part.replace(
-      /\[(\d+)\]/g,
-      '<sup class="kb-cite" title="鏈湴鐭ヨ瘑搴?>[$1]</sup>',
-    );
-    // Replace external source tag
-    p = p.replace(
-      /锛堢患鍚堝閮ㄤ俊鎭級/g,
-      '<span class="ext-tag">$1</span>',
-    );
-    // Style reference section heading
-    p = p.replace(
-      /<h2>鍙傝€冭祫鏂?\/h2>/g,
-      '<h2 class="ref-heading">馃摎 鍙傝€冭祫鏂?/h2>',
-    );
-    return p;
-  }).join('');
-
-  return html;
-}
-
 let abortCtrl: AbortController | null = null;
 let streaming = false;
-let sessionId: string | null = null;
 let chatMode: 'kb_only' | 'enhanced' = 'enhanced';
 let _doSend: (() => Promise<void>) | null = null;
 let _msgList: HTMLElement | null = null;
@@ -160,9 +110,18 @@ export function renderChatWindow(): HTMLElement {
   const el = document.createElement('div');
   el.className = 'flex flex-col min-h-0';
   el.id = 'chat-window-root';
-  el.style.flex = '1';
-  el.innerHTML = `
-    <div class="flex-1 overflow-y-auto p-6" id="msg-list" style="max-width:900px;margin:0 auto;width:100%">
+  el.style.cssText = 'flex:1;display:flex;flex-direction:row;min-height:0;';
+
+  // ── Session panel (left, collapsible) ─────────────────────────
+  const sessionPanel = renderSessionPanel();
+  el.appendChild(sessionPanel);
+
+  // ── Chat area (right) ─────────────────────────────────────────
+  const chatArea = document.createElement('div');
+  chatArea.id = 'chat-area';
+  chatArea.style.cssText = 'flex:1;display:flex;flex-direction:column;min-width:0;';
+  chatArea.innerHTML = `
+    <div class="flex-1 overflow-y-auto px-6 py-4" id="msg-list" style="width:100%">
       <div id="msg-empty" class="flex items-center justify-center h-full text-gray-400">
         <div class="text-center">
           <div class="text-6xl mb-4">AI</div>
@@ -171,9 +130,9 @@ export function renderChatWindow(): HTMLElement {
         </div>
       </div>
     </div>
-    <div class="border-t border-gray-200 p-4 bg-white">
-      <div id="attachment-list" class="chat-attachment-list" style="max-width:900px;margin:0 auto 8px;width:100%;display:none"></div>
-      <div class="flex gap-2 items-end" style="max-width:900px;margin:0 auto;width:100%;position:relative">
+    <div class="border-t border-gray-200 px-4 py-3 bg-white flex-shrink-0">
+      <div id="attachment-list" class="chat-attachment-list" style="width:100%;display:none;margin-bottom:6px;"></div>
+      <div class="flex gap-2 items-end" style="width:100%;position:relative">
         <input id="file-input" type="file" multiple class="sr-only" accept=".txt,.md,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp">
         <button id="attach-btn" type="button" title="上传文件" aria-label="上传文件"
           class="chat-icon-btn flex-shrink-0 self-end mb-0.5">
@@ -202,8 +161,34 @@ export function renderChatWindow(): HTMLElement {
       </div>
     </div>`;
 
+  el.appendChild(chatArea);
+
+  // Bind session panel to ChatWindow events
+  bindChatToSessionPanel(el);
+
   bind(el);
   return el;
+}
+
+/** Wire up session panel ↔ chat window communication. */
+function bindChatToSessionPanel(root: HTMLElement): void {
+  // When session list updates from ChatWindow's loadSessionList
+  // the SessionPanel already listens for 'sessions-updated' events.
+
+  // When chat loads a session, highlight it in the panel
+  window.addEventListener('chat-load', ((e: CustomEvent) => {
+    const sid = e.detail.sessionId || null;
+    setSessionId(sid);
+    const panel = document.getElementById('session-panel');
+    if (panel) highlightSession(panel, sid);
+  }) as EventListener);
+
+  // When chat clears, reset session
+  window.addEventListener('chat-clear', () => {
+    setSessionId(null);
+    const panel = document.getElementById('session-panel');
+    if (panel) highlightSession(panel, null);
+  });
 }
 
 function bind(root: HTMLElement): void {
@@ -325,7 +310,7 @@ function bind(root: HTMLElement): void {
     row.dataset.msgId = id;
     const body = text ? esc(text) : '已上传文件，请阅读附件内容。';
     row.innerHTML =
-      '<div class="max-w-[75%] order-1">' +
+      '<div class="max-w-[85%] order-1">' +
       '<div class="px-4 py-2.5 rounded-2xl bg-indigo-500 text-white rounded-br-md">' + body + renderAttachmentHTML(attachmentNames) + '</div>' +
       '</div>' +
       '<div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white text-sm flex-shrink-0 ml-2 mt-1">你</div>';
@@ -338,7 +323,7 @@ function bind(root: HTMLElement): void {
     row.dataset.msgId = id;
     row.innerHTML =
       '<div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm flex-shrink-0 mr-2 mt-1">AI</div>' +
-      '<div class="max-w-[75%]">' +
+      '<div class="max-w-[85%]">' +
       '<div class="thinking-status"><span>思考中</span><span class="thinking-dots"><i></i><i></i><i></i></span></div>' +
       '<div class="px-4 py-2.5 rounded-2xl bg-gray-100 text-gray-800 rounded-bl-md message-content" id="bubble-' + id + '">' +
       '<span class="thinking-dots"><i></i><i></i><i></i></span></div>' +
@@ -370,17 +355,27 @@ function bind(root: HTMLElement): void {
       if (ti) ti.remove();
     }
     if (!text) { bubble.innerHTML = ''; return; }
-    // Use textContent with pre-wrap — preserves whitespace and line breaks,
-    // and guarantees every character is displayed. Markdown HTML rendering
-    // was silently dropping content on long responses.
-    bubble.textContent = text;
+    // Convert markdown links and bare URLs to clickable HTML.
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // Step 1: markdown links [text](url) → <a>
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="msg-link">$1</a>')
+      // Step 2: bare URLs NOT already inside <a href= — only match URLs at word boundaries
+      .replace(/(?<!href=")(?<!">)(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener" class="msg-link">$1</a>');
+    bubble.innerHTML = html;
     bubble.style.whiteSpace = 'pre-wrap';
     bubble.style.wordBreak = 'break-word';
   }
 
   // ---- Send logic ----
+  let lastSendTime = 0
   async function send(): Promise<void> {
-    if (streaming) return;
+    if (streaming) return
+    // Debounce: prevent rapid-fire sends (< 1 second apart)
+    const now = Date.now()
+    if (now - lastSendTime < 1000) return
+    lastSendTime = now
+
     const text = input.value.trim();
     const files = selectedFiles.slice();
     if (!text && !files.length) return;
@@ -423,7 +418,7 @@ function bind(root: HTMLElement): void {
         },
         onDone(sid) {
           if (tid) window.clearTimeout(tid);
-          sessionId = sid || sessionId;
+          if (sid) setSessionId(sid);
           if (full !== '__rendered__') {
             finalizeAssistant(aid, full);
           }
@@ -438,7 +433,7 @@ function bind(root: HTMLElement): void {
         },
         onSkill(d, sid) {
           resetTimeout();
-          sessionId = sid || sessionId;
+          if (sid) setSessionId(sid);
           activeSkillName = d.skill || activeSkillName;
           activeSkillStage = ((d.data as any)?.stage as string) || activeSkillStage;
           if ((d.data as any)?.mode === 'ask_date' && (d.data as any)?.weeks) {
@@ -455,11 +450,38 @@ function bind(root: HTMLElement): void {
             scrollEnd();
           }
         },
+        onRich(data) {
+          resetTimeout();
+          if (data.html) {
+            // Replace streaming plain text with rich formatted HTML
+            const el = document.getElementById('bubble-' + aid);
+            if (el) {
+              el.innerHTML = data.html;
+              // Make follow-up buttons clickable
+              el.querySelectorAll('.btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                  const input = document.getElementById('chat-input') as HTMLTextAreaElement;
+                  if (input) {
+                    input.value = (btn as HTMLElement).innerText.trim();
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    setTimeout(() => {
+                      const sendBtn = document.getElementById('send-btn');
+                      if (sendBtn) sendBtn.click();
+                    }, 100);
+                  }
+                });
+              });
+              scrollEnd();
+            }
+            // Prevent onDone from overwriting the rich HTML with plain text
+            full = '__rendered__';
+          }
+        },
       };
       if (files.length) {
-        await streamUploadChat(message, sessionId, files, callbacks, abortCtrl.signal, chatMode);
+        await streamUploadChat(message, getSessionId(), files, callbacks, abortCtrl.signal, chatMode);
       } else {
-        await streamChat(message, sessionId, callbacks, abortCtrl.signal, chatMode);
+        await streamChat(message, getSessionId(), callbacks, abortCtrl.signal, chatMode);
       }
     } catch {
       if (tid) window.clearTimeout(tid);
@@ -647,10 +669,10 @@ function bind(root: HTMLElement): void {
     }
   });
 
-  // ---- External control (Sidebar) ----
+  // ---- External control ----
   window.addEventListener('chat-clear', () => {
     if (streaming) { abortCtrl?.abort(); setStreaming(false); }
-    sessionId = null;
+    setSessionId(null);
     activeSkillName = null;
     activeSkillStage = null;
     clearSelectedFiles();
@@ -661,7 +683,7 @@ function bind(root: HTMLElement): void {
     if (streaming) { abortCtrl?.abort(); setStreaming(false); }
     clearSelectedFiles();
     const msgs = e.detail.messages as Message[];
-    sessionId = e.detail.sessionId || null;
+    setSessionId(e.detail.sessionId || null);
     activeSkillName = null;
     activeSkillStage = null;
     hideEmpty();
@@ -694,7 +716,7 @@ function renderMsgHTML(m: Message): string {
   const inner = body || (isUser ? '' : '<span class="thinking-dots"><i></i><i></i><i></i></span>');
   return '<div class="flex ' + (isUser ? 'justify-end' : 'justify-start') + ' mb-4" data-msg-id="' + m.id + '">' +
     (isUser ? '' : avatar) +
-    '<div class="max-w-[75%] ' + (isUser ? 'order-1' : '') + '">' + think +
+    '<div class="max-w-[85%] ' + (isUser ? 'order-1' : '') + '">' + think +
     '<div class="px-4 py-2.5 rounded-2xl message-content ' + cls + '" id="bubble-' + m.id + '">' + inner + '</div>' +
     '</div>' + (isUser ? avatar : '') + '</div>';
 }

@@ -1,8 +1,10 @@
+import asyncio
 import json
 import os
+import uuid
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from app.config import settings as app_settings
@@ -23,15 +25,18 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Initialize RAG knowledge base
+    # Initialize RAG knowledge base (with timeout to prevent event loop blocking)
     try:
         from app.services.rag_service import rag_service
-        await rag_service.initialize()
+        await asyncio.wait_for(rag_service.initialize(), timeout=10.0)
         logger.info("RAG service initialized")
+    except asyncio.TimeoutError:
+        logger.warning("RAG service initialization timed out (skipping)")
     except Exception:
-        logger.warning("RAG service initialization failed (dependencies may be missing)", exc_info=True)
+        logger.warning("RAG service initialization failed", exc_info=True)
 
-    # Initialize file scanner if WATCH_DIRS configured
+    # Initialize file scanner (watch dirs only — no auto-scan on startup)
+    # Users trigger scans manually from the Knowledge page UI
     try:
         from app.services.file_scanner import file_scanner
         watch_dirs_raw = app_settings.watch_dirs
@@ -41,31 +46,20 @@ async def lifespan(app: FastAPI):
             watch_dirs = []
         if watch_dirs:
             file_scanner.watch_dirs = [os.path.abspath(d) for d in watch_dirs if os.path.isdir(d)]
-            if file_scanner.watch_dirs:
-                # Seed _known_files from existing ChromaDB metadata so full_scan
-                # won't re-index everything on first run
-                from app.utils.file_parser import SUPPORTED_EXTENSIONS
-                from app.services.file_scanner import EXCLUDED_DIRS
-                import os as _os
-                count = 0
-                for watch_dir in file_scanner.watch_dirs:
-                    for root, dirs, files in _os.walk(watch_dir):
-                        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
-                        for filename in files:
-                            ext = _os.path.splitext(filename)[1].lower()
-                            if ext not in SUPPORTED_EXTENSIONS:
-                                continue
-                            fp = _os.path.join(root, filename)
-                            try:
-                                file_scanner._known_files[fp] = _os.path.getmtime(fp)
-                                count += 1
-                            except OSError:
-                                pass
-                logger.info("Seeded %d known files from watch dirs", count)
-                file_scanner.start_watching()
-                logger.info("File scanner initialized with %d directories, watching for changes", len(file_scanner.watch_dirs))
+            logger.info("File scanner configured with %d watch dirs (idle until manual scan)", len(file_scanner.watch_dirs))
     except Exception:
         logger.warning("File scanner initialization failed", exc_info=True)
+
+    # Start periodic session cleanup background task (runs every hour, 24h TTL)
+    try:
+        from app.skills import get_registry
+        from app.skills.session_cleanup import periodic_cleanup
+        _cleanup_task = asyncio.create_task(
+            periodic_cleanup(get_registry(), interval=3600, ttl=86400)
+        )
+        logger.info("Session cleanup background task started")
+    except Exception:
+        logger.warning("Session cleanup task failed to start", exc_info=True)
 
     yield
 
@@ -88,7 +82,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routes import chat, persona, sessions, health, skills, settings, knowledge, openapi_feishu
+# ── Global exception handlers ──────────────────────────────────
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.warning("HTTP %s on %s: %s", exc.status_code, request.url.path, exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"status": "error", "code": exc.status_code, "detail": exc.detail},
+    )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled on %s: %s", request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "code": 500, "detail": "Internal server error"},
+    )
+
+# ── Legacy routes (保持兼容，逐步迁移) ──────────────────────────
+from app.routes import chat, persona, sessions, health, skills, settings, knowledge, openapi_feishu, proxy
 
 app.include_router(chat.router)
 app.include_router(persona.router)
@@ -98,6 +112,108 @@ app.include_router(skills.router)
 app.include_router(settings.router)
 app.include_router(knowledge.router)
 app.include_router(openapi_feishu.router)
+app.include_router(proxy.router)
+
+# ── v1 Feature APIs (NEW — 独立于技能系统) ──────────────────────
+from app.api import feature_router
+app.include_router(feature_router)
+
+
+# ── Image generation endpoint (independent of skill routing) ──
+from pydantic import BaseModel as _PydanticBaseModel
+
+class ImageGenRequest(_PydanticBaseModel):
+    prompt: str
+    session_id: str | None = None
+
+@app.post("/api/image-gen")
+async def image_gen_endpoint(req: ImageGenRequest):
+    """Generate image via Agnes. Returns {success, image_url, prompt, error}."""
+    import asyncio as _asyncio
+    from app.services.image_gen_service import generate_image, ImageGenResult
+    from app.config import settings as _settings
+
+    if not _settings.agnes_api_key:
+        return {"success": False, "error": "Agnes API key not configured"}
+
+    filename = f"gen_{uuid.uuid4().hex[:8]}.png"
+    from app.services._paths import PUBLIC_DIR
+    out_dir = str(PUBLIC_DIR)
+    os.makedirs(out_dir, exist_ok=True)
+    output_path = os.path.join(out_dir, filename)
+
+    result = await generate_image(req.prompt, output_path, size="1024x1024")
+    if not result.success:
+        return {"success": False, "error": result.error}
+
+    download_url = f"/api/skills/download/{filename}"
+    return {
+        "success": True,
+        "image_url": download_url,
+        "download_url": download_url,
+        "prompt": req.prompt,
+        "backend": result.backend,
+        "path": result.path,
+    }
+
+# ── Simple file upload for batch PPTX tool ────────────────────
+from fastapi import UploadFile, File
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a single image file. Returns the server path."""
+    from app.services._paths import DATA_DIR
+    uploads_dir = DATA_DIR / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    ext = os.path.splitext(file.filename)[1] or ".png"
+    dest = uploads_dir / f"{uuid.uuid4().hex}{ext}"
+    content = await file.read()
+    dest.write_bytes(content)
+    return {"path": str(dest.resolve()), "filename": file.filename}
+
+# ── System restart endpoint ─────────────────────────────────────
+@app.post("/api/system/restart")
+async def restart_server():
+    """Kill this server, clear caches, and restart with fresh code."""
+    import subprocess, sys
+    from app.services._paths import BACKEND_DIR
+    backend_dir = str(BACKEND_DIR)
+
+    restart_script = (
+        "import os, sys, subprocess, time, shutil\n"
+        "time.sleep(1)\n"
+        "# Kill all uvicorn on port 8011\n"
+        "result = subprocess.run(['netstat','-ano'], capture_output=True, text=True)\n"
+        "for line in result.stdout.split('\\n'):\n"
+        "    if ':8011' in line and 'LISTENING' in line:\n"
+        "        pid = line.strip().split()[-1]\n"
+        "        try:\n"
+        "            subprocess.run(['taskkill','/F','/PID',pid], capture_output=True)\n"
+        "        except:\n"
+        "            pass\n"
+        "time.sleep(1)\n"
+        "# Clear cache\n"
+        "backend_dir = " + repr(backend_dir) + "\n"
+        "for root, dirs, files in os.walk(backend_dir):\n"
+        "    for d in dirs:\n"
+        "        if d == '__pycache__':\n"
+        "            p = os.path.join(root, d)\n"
+        "            shutil.rmtree(p, ignore_errors=True)\n"
+        "    for f in files:\n"
+        "        if f.endswith('.pyc'):\n"
+        "            try: os.remove(os.path.join(root, f))\n"
+        "            except: pass\n"
+        "# Restart\n"
+        "subprocess.Popen(\n"
+        "    [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8011'],\n"
+        "    cwd=backend_dir,\n"
+        "    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,\n"
+        ")\n"
+    )
+    subprocess.Popen(
+        [sys.executable, '-c', restart_script],
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,
+    )
+    return {"ok": True, "message": "Server restart initiated. Refresh in ~3 seconds."}
 
 
 @app.get("/app/app_4k9rvfdqrdezp/feishu-oauth-callback", response_class=HTMLResponse)

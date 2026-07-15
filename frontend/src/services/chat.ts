@@ -6,6 +6,7 @@ export interface StreamCallbacks {
   onToken: (token: string) => void;
   onDone: (sessionId: string) => void;
   onError: (error: string) => void;
+  onRich: (data: { html: string; followups: string[]; plain_text: string }) => void;
   onSkill: (data: { skill: string; message: string; data?: Record<string, unknown>; follow_up_action?: string }, sessionId: string) => void;
 }
 
@@ -50,6 +51,8 @@ async function consumeChatStream(response: Response, callbacks: StreamCallbacks)
       } else if (event.type === 'error') {
         finished = true;
         safeCallback(() => callbacks.onError(String(event.data || '')));
+      } else if (event.type === 'rich') {
+        safeCallback(() => callbacks.onRich(event.data || {}));
       } else if (event.type === 'skill') {
         finished = true;
         const sid = (event.data && typeof event.data === 'object') ? (event.data.session_id as string || '') : '';

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./data/chroma_db"
 
     host: str = "0.0.0.0"
-    port: int = 8001
+    port: int = 8002
     cors_origins: list[str] = ["http://localhost:5173"]
 
     watch_dirs: str = "[]"
@@ -37,6 +37,23 @@ class Settings(BaseSettings):
     codex_home: str = ""
     ruizhi_api_key: str = ""
     openai_api_key: str = ""
+    agnes_api_key: str = ""
+    agnes_base_url: str = "https://apihub.agnes-ai.com/v1"
+    agnes_model: str = "agnes-2.0-flash"
+
+    lovart_api_key: str = ""
+    lovart_base_url: str = "https://api.catrouter.net/v1"
+
+    image_gen_backend: str = "auto"
+
+    shiyun_api_key: str = ""
+    shiyun_base_url: str = "https://shiyunapi.com"
+
+    api0029_key: str = ""
+    api0029_base_url: str = "https://api.0029.org"
+
+    tutujin_api_key: str = ""
+    tutujin_base_url: str = "https://api.tutujin.com"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "allow"}
 

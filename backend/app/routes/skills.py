@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.skills import find_skill, SkillContext
 from app.models.skill import SkillExecution
+from app.services._paths import PUBLIC_DIR, UPLOADS_DIR
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
 
@@ -81,10 +82,81 @@ async def trigger_skill(
     }
 
 
-@router.get("/download/{filename}")
-async def download_skill_output(filename: str):
-    output_dir = os.path.join("data", "outputs")
-    file_path = os.path.join(output_dir, filename)
-    if not os.path.exists(file_path):
-        return {"error": "File not found"}
-    return FileResponse(file_path, filename=filename)
+@router.get("/download/{file_path:path}")
+async def download_skill_output(file_path: str):
+    """Download a skill output file. Supports both flat files and subdirectories."""
+    import urllib.parse
+    # Decode URL-encoded path
+    file_path = urllib.parse.unquote(file_path)
+    output_dir = str(PUBLIC_DIR)
+    full_path = os.path.normpath(os.path.join(output_dir, file_path))
+    # Security: ensure path stays within output_dir
+    if not full_path.startswith(str(PUBLIC_DIR)):
+        return {"error": "Invalid path"}
+    if not os.path.exists(full_path):
+        # Also try looking for the file directly in data/outputs/
+        fallback = os.path.join(output_dir, os.path.basename(file_path))
+        if os.path.exists(fallback):
+            full_path = fallback
+        else:
+            return {"error": f"File not found: {os.path.basename(file_path)}"}
+    ext = os.path.splitext(full_path)[1].lower()
+    media_map = {
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".md": "text/markdown; charset=utf-8",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".pdf": "application/pdf",
+        ".svg": "image/svg+xml",
+    }
+    media_type = media_map.get(ext, "application/octet-stream")
+    filename = os.path.basename(full_path)
+    return FileResponse(full_path, filename=filename, media_type=media_type)
+
+
+# ══════════════════════════════════════════════════════════════════
+# Legacy batch endpoints — DEPRECATED, use /api/v1/pptx/* instead
+# These are kept for backward compatibility only.
+# ══════════════════════════════════════════════════════════════════
+
+@router.post("/batch-pptx", deprecated=True)
+async def batch_convert_images(data: dict):
+    """[DEPRECATED] Use POST /api/v1/pptx/convert-async instead."""
+    from app.services.batch_pptx_service import PIPELINE_VERSION, batch_convert
+
+    images = data.get("images", [])
+    if not images or len(images) < 1:
+        return {"error": "At least 1 image required"}
+
+    output_dir = str(PUBLIC_DIR)
+
+    result = await batch_convert(images, output_dir=output_dir)
+    result["pipelines_version"] = PIPELINE_VERSION
+    return result
+
+
+@router.post("/batch-pptx-async", deprecated=True)
+async def batch_convert_async(data: dict):
+    """[DEPRECATED] Use POST /api/v1/pptx/convert-async instead."""
+    from app.services.batch_job_manager import create_job
+
+    images = data.get("images", [])
+    if not images or len(images) < 1:
+        return {"error": "At least 1 image required"}
+
+    output_dir = str(PUBLIC_DIR)
+
+    job_id = create_job(images, output_dir)
+    return {"job_id": job_id, "status": "queued", "total": len(images)}
+
+
+@router.get("/batch-status/{job_id}", deprecated=True)
+async def batch_job_status(job_id: str):
+    """[DEPRECATED] Use GET /api/v1/pptx/jobs/{job_id} instead."""
+    from app.services.batch_job_manager import get_job
+
+    job = get_job(job_id)
+    if not job:
+        return {"error": "Job not found"}
+    return job

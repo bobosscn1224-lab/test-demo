@@ -1,9 +1,11 @@
 import os
+import json
 import asyncio
 import inspect
 import logging
 import threading
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from app.utils.file_parser import SUPPORTED_EXTENSIONS
 from app.services.rag_service import rag_service
 
@@ -17,6 +19,8 @@ ProgressCallback = Callable[[dict], None | Awaitable[None]]
 class FileScanner:
     """Scans configured directories and indexes files into the RAG knowledge base."""
 
+    STATE_PATH = os.path.join("data", "scan_state.json")
+
     def __init__(self, watch_dirs: list[str] | None = None):
         self.watch_dirs: list[str] = [os.path.abspath(d) for d in (watch_dirs or []) if os.path.isdir(d)]
         self._observer = None
@@ -24,6 +28,38 @@ class FileScanner:
         self._watch_thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._scan_lock = asyncio.Lock()
+        self._load_state()
+
+    def _load_state(self) -> None:
+        """Restore _known_files from persisted scan state."""
+        try:
+            if os.path.exists(self.STATE_PATH):
+                with open(self.STATE_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                loaded = data.get("known_files", {})
+                # Validate: only keep files that still exist on disk
+                for path, mtime in loaded.items():
+                    try:
+                        if os.path.exists(path) and os.path.getmtime(path) <= mtime:
+                            self._known_files[path] = mtime
+                    except OSError:
+                        pass
+                logger.info("Loaded %d known files from scan state (%d still valid)",
+                           len(loaded), len(self._known_files))
+        except Exception as exc:
+            logger.warning("Failed to load scan state: %s", exc)
+
+    def _save_state(self) -> None:
+        """Persist _known_files to disk."""
+        try:
+            os.makedirs(os.path.dirname(self.STATE_PATH), exist_ok=True)
+            with open(self.STATE_PATH, "w", encoding="utf-8") as f:
+                json.dump({
+                    "known_files": self._known_files,
+                    "last_scan": datetime.utcnow().isoformat(),
+                }, f, ensure_ascii=False)
+        except Exception as exc:
+            logger.warning("Failed to save scan state: %s", exc)
 
     @property
     def is_watching(self) -> bool:
@@ -182,6 +218,7 @@ class FileScanner:
                 logger.info("Removed deleted file from index: %s", old_path)
 
         self._known_files = current_files
+        self._save_state()
         return {
             "status": "ok",
             "added": added,
@@ -296,6 +333,7 @@ class FileScanner:
                 chunk_ids = await rag_service.index_file(file_path)
                 if chunk_ids:
                     self._known_files[file_path] = os.path.getmtime(file_path)
+                    self._save_state()
                     logger.info("Re-indexed %s file: %s (%d chunks)", reason, file_path, len(chunk_ids))
             except Exception:
                 logger.warning("Failed to re-index %s", file_path, exc_info=True)
@@ -315,6 +353,7 @@ class FileScanner:
                 doc_id = _make_doc_id(file_path)
                 deleted = await rag_service.delete_doc(doc_id)
                 self._known_files.pop(file_path, None)
+                self._save_state()
                 if deleted:
                     logger.info("Removed deleted file: %s", file_path)
             except Exception:
