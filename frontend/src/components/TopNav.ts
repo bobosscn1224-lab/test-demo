@@ -13,6 +13,9 @@ const NAV_ITEMS: NavItem[] = [
   { page: 'image-gen', label: '图片',   icon: '🎨' },
   { page: 'pptx',      label: 'PPT',    icon: '📽' },
   { page: 'ppt-maker', label: 'PPT制作', icon: '🎨' },
+  { page: 'asset-manage', label: '素材', icon: '📦' },
+  { page: 'video-gen', label: '视频', icon: '🎬' },
+  { page: 'pro-mode', label: '专业模式', icon: '🎥' },
   { page: 'skills',    label: '技能',   icon: '⚡' },
 ];
 

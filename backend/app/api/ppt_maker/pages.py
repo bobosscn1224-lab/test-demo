@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.services._paths import PUBLIC_DIR
+from app.services.collage_prompt_spec import get_variant_style_system
 from app.skills.ppt_maker_v2 import image_gen
 from app.skills.ppt_maker_v2.prompts import SINGLE_PAGE_BASE
 from app.skills.ppt_maker_v2.constants import IMAGE_TIMEOUT
@@ -31,48 +32,6 @@ _STYLE_LABEL: dict[str, str] = {
     "creative": "创意活泼", "bold": "高端大气",
 }
 
-# Detailed visual system per style — used to build page-generation style_text
-_STYLE_VISUAL: dict[str, str] = {
-    "professional": (
-        "Background: white to light warm grey (#F8F7F4 to #FFFFFF). "
-        "Font: Inter / Source Han Sans, titles 28-32px bold dark charcoal (#1a365d), body 10-12px. "
-        "Colors: primary indigo (#3B5998), secondary warm grey, accent coral (#E8734A). "
-        "Charts: flat design, thin grey gridlines, rounded bars. "
-        "Cards: 1px border, 6px radius, 16px padding. "
-        "Margins: 60/50/70px. Density: medium. Consulting-report professional aesthetic."
-    ),
-    "tech": (
-        "Background: deep dark (#0D1117 to #161B22), 3-5% grid dot pattern. "
-        "Font: SF Pro Display / DIN, titles 30-38px bold white or electric blue (#58A6FF). "
-        "Colors: dark bg, electric blue, cyan (#39D2C0), amber (#F0883E). "
-        "Charts: dark surfaces + luminous data elements. "
-        "Cards: semi-transparent panels, 8-15% white overlay, 10px radius. "
-        "Density: medium-high. High-tech keynote futuristic aesthetic."
-    ),
-    "minimal": (
-        "Background: warm off-white (#FAF9F6), 2% paper texture. "
-        "Font: serif titles (Source Han Serif), sans-serif body; titles 24-28px dark brown. "
-        "Colors: warm neutrals, dark brown (#2C2416), warm taupe (#8B7D6B), accent burgundy (#8B3A3A). "
-        "Charts: refined minimal, hairline strokes. "
-        "Margins: 72-80/60/80px — generous whitespace. Density: low-medium. Editorial refined aesthetic."
-    ),
-    "creative": (
-        "Background: bright white or light gradient, optional accent color blocks. "
-        "Font: bold expressive, titles 24-30px, rounded or handwritten style welcome. "
-        "Colors: high-saturation accents (coral orange, lemon yellow, mint green) on white/light base. "
-        "Charts: playful, illustrated icons, organic shapes. "
-        "Cards: colorful borders, soft shadows. Density: medium. Creative bold youthful aesthetic."
-    ),
-    "bold": (
-        "Background: deep black or dark charcoal, gold/rose-gold accents. "
-        "Font: large bold, titles 32-40px, serif allowed for luxury feel. "
-        "Colors: black + gold (#C9A96E) + white text + dark red accents. "
-        "Charts: bold blocks, thick lines, minimal detail. "
-        "Cards: generous whitespace, gold borders. Density: low-medium. Luxury premium authoritative aesthetic."
-    ),
-}
-
-
 def _clean_for_image(text: str) -> str:
     """Strip AI markers that would pollute image generation prompts."""
     return re.sub(r'\s*\[(AI增强|参考补充)\]\s*', ' ', text)
@@ -88,27 +47,7 @@ def _build_style_text(project: dict, variant: str) -> str:
 
     variant: "A", "B", or "C" — each emphasizes different aspects of the user's styles.
     """
-    styles = project.get("styles", [])
-    if not styles:
-        # Fallback: use the variant's default style
-        defaults = {"A": "professional", "B": "tech", "C": "minimal"}
-        default = defaults.get(variant, "professional")
-        return _STYLE_VISUAL.get(default, _STYLE_VISUAL["professional"])
-
-    # Build style text based on the variant
-    if variant == "A":
-        # Primary: user's first style
-        return _STYLE_VISUAL.get(styles[0], _STYLE_VISUAL["professional"])
-    elif variant == "B":
-        # Secondary: user's second style (or blend)
-        if len(styles) > 1:
-            return _STYLE_VISUAL.get(styles[1], _STYLE_VISUAL["tech"])
-        return _STYLE_VISUAL.get("tech", _STYLE_VISUAL["tech"])
-    else:  # C
-        # Tertiary: user's third style (or creative/luxury)
-        if len(styles) > 2:
-            return _STYLE_VISUAL.get(styles[2], _STYLE_VISUAL["minimal"])
-        return _STYLE_VISUAL.get("creative", _STYLE_VISUAL["minimal"])
+    return get_variant_style_system(project.get("styles", []), variant)
 
 
 def _extract_slides(outline: str) -> list[dict]:
@@ -233,8 +172,12 @@ async def generate_pages(project_id: str) -> PageGenerateResponse:
             idx, total, project_id, project.get("styles"), choice, collage_filename or "none",
         )
 
-        error = await image_gen.generate(prompt, out_path, timeout=IMAGE_TIMEOUT, backend=project.get("image_backend", ""),
-                                          reference_url=ref_url)
+        error = await image_gen.generate(
+            prompt, out_path, interaction_name="ppt_slide",
+            validation_context={"page": idx, "expected_aspect": 16 / 9},
+            timeout=IMAGE_TIMEOUT, backend=project.get("image_backend", ""),
+            reference_url=ref_url,
+        )
         if error:
             logger.error("Page %d generation failed for project %s: %s", idx, project_id, error)
             # Save whatever pages we have so far before raising error
@@ -370,9 +313,12 @@ async def regenerate_page(
 
     logger.info("Regenerating page %d for project %s (ref=%s)", page_num, project_id, collage_filename or "none")
 
-    error = await image_gen.generate(prompt, out_path, timeout=IMAGE_TIMEOUT,
-                                      backend=project.get("image_backend", ""),
-                                      reference_url=regen_ref_url)
+    error = await image_gen.generate(
+        prompt, out_path, interaction_name="ppt_slide",
+        validation_context={"page": page_num, "expected_aspect": 16 / 9},
+        timeout=IMAGE_TIMEOUT, backend=project.get("image_backend", ""),
+        reference_url=regen_ref_url,
+    )
     if error:
         logger.error("Page %d regeneration failed for project %s: %s", page_num, project_id, error)
         raise HTTPException(

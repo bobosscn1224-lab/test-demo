@@ -219,18 +219,27 @@ OUTLINE_USER = """你是一位资深演示策略顾问。请严格按以下流�
 
 # ── Visual collage prompts (step 2) ───────────────────────────────
 
-COLLAGE_BASE = """Create one complete collage image for a professional business PowerPoint deck.
-The collage must include every slide thumbnail in the confirmed order. Each thumbnail is a 16:9 horizontal PPT slide.
-Do not create a PPTX file and do not create separate single-slide images.
-Use only the confirmed outline and slide-by-slide content below.
+COLLAGE_BASE = """Generate one collage image for a {page_count}-slide PowerPoint deck.
 
-Confirmed outline:
-{outline}"""
+MANDATORY GRID RULES — VIOLATION MEANS REGENERATION:
+1. EXACT GRID: {page_count} slides in {grid_hint}, reading order left-to-right, top-to-bottom.
+2. IDENTICAL SIZE: EVERY slide thumbnail MUST be the EXACT SAME pixel width and EXACT SAME pixel height. No slide is wider, narrower, taller, or shorter than any other slide. Slide 1 = Slide 7 = Slide {page_count} in dimensions.
+3. If the last row has fewer slides than columns, leave the empty cells BLANK. Do NOT stretch, enlarge, or resize any slide to fill gaps.
+4. All slides 16:9 horizontal. Uniform 10-15px gaps. Clean margins on all sides.
+
+{project_context}
+
+DECK CONTENT (design slides based on this content):
+{slide_summary}
+
+{visual_direction}
+
+OUTPUT: One collage PNG — {page_count} identical-size 16:9 thumbnails."""
 
 VISUAL_DIRECTIONS = {
-    "A": "Visual direction A: premium strategy consulting report, bright background, precise grid, restrained accent colors.",
-    "B": "Visual direction B: advanced technology keynote, deep clean background, luminous data accents, high-end AI atmosphere.",
-    "C": "Visual direction C: refined editorial business deck, sophisticated image use, generous whitespace, elegant information blocks.",
+    "A": "VISUAL STYLE A — Premium Consulting Report: Light, airy, confident. Think McKinsey/BCG. Bright white backgrounds, precise typography, one bold accent color (deep blue or teal) used sparingly for headers and key data. Clean charts. The feeling: credible, sharp, data-driven.",
+    "B": "VISUAL STYLE B — Tech Keynote: Dark, immersive, futuristic. Think Apple/Google keynotes. Deep navy or charcoal backgrounds, glowing neon accents (cyan, electric blue, emerald), luminous data visualizations. The feeling: cutting-edge, visionary, bold.",
+    "C": "VISUAL STYLE C — Editorial Business: Sophisticated, refined, cultured. Think high-end brand deck or design magazine. Generous whitespace, muted sophisticated palette (warm grays, soft blush, cream), elegant serif/display typography, artistic image use. The feeling: tasteful, premium, trustworthy.",
 }
 
 # ── Single page prompts (step 3) ──────────────────────────────────

@@ -131,6 +131,7 @@ class ResponseFormatter:
 
         try:
             resp = await llm_service.chat(
+                interaction_name="html_formatting",
                 system_prompt="你是内容排版专家。将文本转换为结构化HTML片段。只输出HTML。",
                 messages=[{"role": "user", "content": STRUCTURE_PROMPT.format(text=text[:6000])}],
                 max_tokens=3000,
@@ -283,6 +284,7 @@ class ResponseFormatter:
         try:
             summary = reply[:500] + ("..." if len(reply) > 500 else "")
             resp = await llm_service.chat(
+                interaction_name="followup_generation",
                 system_prompt="你是用户体验专家。生成自然的追问建议。严格返回JSON数组。",
                 messages=[{"role": "user", "content": INTERACTION_PROMPT.format(
                     user_message=user_message[:300],

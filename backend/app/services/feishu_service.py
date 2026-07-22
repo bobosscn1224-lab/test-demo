@@ -14,6 +14,8 @@ To get credentials:
    - docx:document:readonly
 5. Publish the app and get admin approval
 """
+from __future__ import annotations
+
 import os
 import time
 import httpx

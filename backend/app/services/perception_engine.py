@@ -98,6 +98,7 @@ class PerceptionEngine:
 
         try:
             resp = await llm_service.chat(
+                interaction_name="perception_analysis",
                 system_prompt="你是用户感知分析专家。从多个维度分析用户消息。严格返回JSON。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=600,

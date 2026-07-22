@@ -75,6 +75,7 @@ class SVGSlideService:
 
             try:
                 resp = await llm_service.chat(
+                    interaction_name="svg_generation",
                     system_prompt="You are an SVG expert. Output ONLY valid SVG code. No markdown, no explanations.",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=4096,

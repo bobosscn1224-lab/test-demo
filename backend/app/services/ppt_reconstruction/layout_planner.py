@@ -268,6 +268,7 @@ async def generate_layout_plan(
 
     try:
         response = await llm_service.chat(
+            interaction_name="layout_plan_generation",
             system_prompt=LAYOUT_PLAN_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
             max_tokens=8192,

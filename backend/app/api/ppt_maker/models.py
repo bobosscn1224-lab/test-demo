@@ -118,6 +118,9 @@ class Project(BaseModel):
     content_files: list = Field(default_factory=list)   # file path strings or dicts
     outline_pages: list = Field(default_factory=list)   # structured outline pages (OutlinePage dicts)
     collages: list = Field(default_factory=list)         # CollageItem dicts with prompt
+    collage_run_id: str = ""
+    collage_visual_directions: dict[str, str] = Field(default_factory=dict)
+    collage_generation: dict = Field(default_factory=dict)
     page_images: list = Field(default_factory=list)      # generated page images (PageItem dicts)
     pages: list = Field(default_factory=list)            # legacy — mixed outline+images, kept for compat
 
@@ -162,7 +165,6 @@ class OutlineResponse(BaseModel):
     project_id: str
     outline: str = ""                      # raw LLM output (for reference)
     pages: list[OutlinePage] = Field(default_factory=list)  # structured pages
-    message: str = ""
     message: str = ""
 
 

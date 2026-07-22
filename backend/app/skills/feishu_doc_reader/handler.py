@@ -195,6 +195,7 @@ class FeishuDocReaderSkill(BaseSkill):
 {content[:60000]}"""
         try:
             response = await llm_service.chat(
+                interaction_name="document_summary",
                 system_prompt="你是严谨的业务文档总结助手，输出简洁、结构清楚、不要编造信息。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=3000, temperature=0.2, thinking={"type": "disabled"},
@@ -218,6 +219,7 @@ class FeishuDocReaderSkill(BaseSkill):
 {content[:60000]}"""
         try:
             response = await llm_service.chat(
+                interaction_name="key_point_extraction",
                 system_prompt="你是严谨的信息抽取助手。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=3000, temperature=0.2, thinking={"type": "disabled"},
@@ -251,6 +253,7 @@ class FeishuDocReaderSkill(BaseSkill):
 {content[:60000]}"""
         try:
             response = await llm_service.chat(
+                interaction_name="document_ppt_outline",
                 system_prompt="你是资深的演示文稿策划专家，输出专业、结构化、可直接用于制作PPT的大纲。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=4000, temperature=0.3, thinking={"type": "disabled"},
@@ -284,6 +287,7 @@ class FeishuDocReaderSkill(BaseSkill):
 {user_question}"""
         try:
             response = await llm_service.chat(
+                interaction_name="document_qa",
                 system_prompt="你是严谨的文档分析助手。严格基于提供的文档内容回答问题，不编造信息。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=4000, temperature=0.2, thinking={"type": "disabled"},

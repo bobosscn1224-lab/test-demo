@@ -1120,6 +1120,7 @@ async def _refine_text_with_deepseek(
     )
     try:
         response = await llm_service.chat(
+            interaction_name="text_refinement",
             system_prompt=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
             max_tokens=8192,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 import json
@@ -149,6 +151,7 @@ async def _detect_and_store_correction(
 
     try:
         response = await llm_service.chat(
+            interaction_name="correction_detection",
             system_prompt="你是一个对话分析助手。只返回严格 JSON 格式的结果。",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
@@ -415,7 +418,7 @@ async def chat_message(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     system_prompt = build_system_prompt(persona, knowledge_context=knowledge_context)
     messages = [{"role": "user", "content": req.message}]
 
-    response = await llm_service.chat(system_prompt=system_prompt, messages=messages)
+    response = await llm_service.chat(interaction_name="chat_response", system_prompt=system_prompt, messages=messages)
     reply = ""
     if response.content:
         for block in response.content:

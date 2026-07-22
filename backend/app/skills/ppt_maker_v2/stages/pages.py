@@ -1,4 +1,5 @@
 """Stage: single-page high-res generation (step 3)."""
+from __future__ import annotations
 
 import os
 import re
@@ -147,7 +148,11 @@ async def resume_stream(session: dict, sessions: dict, session_id: str):
         )
 
         yield f"正在生成第 {idx}/{total} 页单页 PPT 视觉稿...\n"
-        error = await image_gen.generate(prompt, out_path, timeout=IMAGE_TIMEOUT)
+        error = await image_gen.generate(
+            prompt, out_path, interaction_name="ppt_slide",
+            validation_context={"page": idx, "expected_aspect": 16 / 9},
+            timeout=IMAGE_TIMEOUT,
+        )
         if error:
             yield SkillResult(success=False, message=f"第 {idx} 页生成失败：{error}")
             return
@@ -215,7 +220,11 @@ async def generate_stream(session: dict, sessions: dict, session_id: str):
         )
 
         yield f"正在生成第 {idx}/{total} 页单页 PPT 视觉稿...\n"
-        error = await image_gen.generate(prompt, out_path, timeout=IMAGE_TIMEOUT)
+        error = await image_gen.generate(
+            prompt, out_path, interaction_name="ppt_slide",
+            validation_context={"page": idx, "expected_aspect": 16 / 9},
+            timeout=IMAGE_TIMEOUT,
+        )
         if error:
             yield SkillResult(success=False, message=f"第 {idx} 页生成失败：{error}")
             return

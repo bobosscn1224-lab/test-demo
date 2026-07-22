@@ -86,6 +86,29 @@ class PPTMakerSkill(BaseSkill):
             await _helper.save(sid, _sessions.get(sid, {}))
             return
 
+        # Single-plan regeneration with modifications (from collage_choice)
+        if stage == "collage_regenerating":
+            async for item in collage.regenerate_single_stream(session, _sessions, sid):
+                yield item
+            await _helper.save(sid, _sessions.get(sid, {}))
+            return
+
+        # Collage choice with single-plan regeneration request (handled via streaming)
+        if stage == "collage_choice":
+            target_label, _mods = collage._parse_single_regenerate(msg)
+            if target_label:
+                sessions_dict = _sessions
+                sessions_dict[sid] = {
+                    **session,
+                    "regenerate_target": target_label,
+                    "regenerate_modifications": _mods,
+                    "stage": "collage_regenerating",
+                }
+                async for item in collage.regenerate_single_stream(sessions_dict[sid], _sessions, sid):
+                    yield item
+                await _helper.save(sid, _sessions.get(sid, {}))
+                return
+
         # Page generation (step 3) — fresh start
         if stage == "pages_confirm" and self._is_start(msg):
             async for item in pages.generate_stream(session, _sessions, sid):
@@ -122,6 +145,7 @@ class PPTMakerSkill(BaseSkill):
             "collage_confirm":   lambda: collage.handle_collage_confirm(context, session, _sessions, sid),
             "collage_choice":    lambda: collage.handle_visual_choice(context, session, _sessions, sid),
             "collage_generating": lambda: self._handle_interrupted(context.user_message, session, sid, "collage"),
+            "collage_regenerating": lambda: self._handle_single_regen_fallback(context, session, sid),
             "collage_upload":    lambda: pages.handle_collage_upload(context, session, _sessions, sid),
             "pages_confirm":     lambda: pages.handle_pages_confirm(context, session, _sessions, sid),
             "pages_generating":  lambda: self._handle_interrupted(context.user_message, session, sid, "pages"),
@@ -198,6 +222,24 @@ class PPTMakerSkill(BaseSkill):
                 data={"skill": self.name, "stage": "pages_generating"},
             )
 
+    async def _handle_single_regen_fallback(self, context: SkillContext, session: dict, sid: str) -> SkillResult:
+        """Non-streaming fallback for single-plan regeneration — tells user to wait."""
+        from .stages import collage as _collage
+        target = session.get("regenerate_target", "")
+        mods = session.get("regenerate_modifications", "")
+        if not target or not mods:
+            _sessions[sid] = {**session, "stage": "collage_choice"}
+            return SkillResult(
+                success=True,
+                message="未识别到修改意见。请用「方案 A 重新生成，具体的修改意见」格式输入。",
+                data={"skill": self.name, "stage": "collage_choice"},
+            )
+        return SkillResult(
+            success=True,
+            message=f"正在重新生成方案 {target}（修改意见：{mods}）...\n\n请稍候，此过程需要几分钟。如果长时间无响应，请刷新页面后发送「继续」。",
+            data={"skill": self.name, "stage": "collage_regenerating"},
+        )
+
     # ── Helpers ───────────────────────────────────────────────────
 
     def _is_exit(self, msg: str) -> bool:
@@ -220,4 +262,6 @@ class PPTMakerSkill(BaseSkill):
     def _imagegen_env(self):
         from .image_gen import _cli_env; return _cli_env()
     async def _run_imagegen(self, exe, prompt, out_path, timeout):
-        return await image_gen.generate(prompt, out_path, timeout)
+        return await image_gen.generate(
+            prompt, out_path, interaction_name="ppt_slide", timeout=timeout,
+        )

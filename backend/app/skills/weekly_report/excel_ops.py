@@ -1,5 +1,7 @@
 """Weekly report Excel operations — read, copy, write, merge."""
 
+from __future__ import annotations
+
 import copy
 import os
 import re

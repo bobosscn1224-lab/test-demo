@@ -1,7 +1,11 @@
+from __future__ import annotations
 import asyncio
 import logging
 import time
-import winreg
+try:
+    import winreg
+except ImportError:
+    winreg = None  # type: ignore
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/proxy", tags=["proxy"])
@@ -294,3 +298,4 @@ SERVER_LIST = [
 @router.get("/servers")
 async def get_servers():
     return {"servers": SERVER_LIST}
+

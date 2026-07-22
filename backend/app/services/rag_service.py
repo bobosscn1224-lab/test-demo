@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
 import re
 import hashlib
 import logging
 import asyncio
+import math
 from collections import defaultdict
 
 import httpx
@@ -39,6 +42,38 @@ class SiliconFlowEmbedding:
                 "Content-Type": "application/json",
             },
         )
+        self._dimension: int | None = None
+
+    def _validate_embedding_response(self, data: dict, expected_count: int, spec: dict) -> list[list[float]]:
+        items = data.get("data")
+        if not isinstance(items, list) or len(items) != expected_count:
+            raise ValueError(f"向量数量不匹配：expected={expected_count}, actual={len(items) if isinstance(items, list) else 'invalid'}")
+        items = sorted(items, key=lambda item: item.get("index", -1))
+        if [item.get("index") for item in items] != list(range(expected_count)):
+            raise ValueError("向量索引缺失或重复")
+        vectors: list[list[float]] = []
+        dimensions: set[int] = set()
+        for item in items:
+            vector = item.get("embedding")
+            if not isinstance(vector, list) or not vector:
+                raise ValueError("模型返回空向量")
+            if not all(isinstance(value, (int, float)) and math.isfinite(float(value)) for value in vector):
+                raise ValueError("向量包含非数值或非有限值")
+            if sum(float(value) * float(value) for value in vector) <= 1e-12:
+                raise ValueError("模型返回全零向量")
+            dimensions.add(len(vector))
+            vectors.append(vector)
+        if len(dimensions) != 1:
+            raise ValueError(f"同批次向量维度不一致：{sorted(dimensions)}")
+        dimension = next(iter(dimensions))
+        minimum = int(spec.get("embedding_min_dimensions", 256))
+        maximum = int(spec.get("embedding_max_dimensions", 8192))
+        if not minimum <= dimension <= maximum:
+            raise ValueError(f"向量维度异常：{dimension}，期望 {minimum}..{maximum}")
+        if self._dimension is not None and dimension != self._dimension:
+            raise ValueError(f"向量维度漂移：原 {self._dimension}，当前 {dimension}")
+        self._dimension = dimension
+        return vectors
 
     def encode(self, texts: list[str]) -> list[list[float]]:
         """Return embedding vectors for *texts*.
@@ -57,9 +92,16 @@ class SiliconFlowEmbedding:
         # Keep chunks within the embedding model's practical context window.
         # The chunker is configured to stay near this size, so truncation should
         # be a last-resort guard rather than normal behavior.
-        MAX_CHARS = 512
+        from app.services.llm_interaction import get_spec
+        from app.services.llm_logger import log_model_attempt
+
+        spec = get_spec("embedding_generation")
+        MAX_CHARS = int(spec.get("max_input_chars", 512))
         truncated = []
         for t in texts:
+            t = str(t or "").strip()
+            if not t:
+                raise ValueError("Embedding input must not be empty")
             if len(t) > MAX_CHARS:
                 truncated.append(t[:MAX_CHARS])
             else:
@@ -67,22 +109,45 @@ class SiliconFlowEmbedding:
 
         # SiliconFlow limits batch size; chunk if needed
         all_embeddings = []
-        batch_size = 32
+        batch_size = int(spec.get("embedding_batch_size", 32))
+        max_retries = int(spec.get("max_retries", 2))
         for i in range(0, len(truncated), batch_size):
             batch = truncated[i:i + batch_size]
-            resp = self._client.post(
-                self._base_url,
-                json={"model": self._model, "input": batch},
-            )
-            if resp.status_code != 200:
-                logger.error("SiliconFlow embedding API error %d: %s", resp.status_code, resp.text[:500])
-                raise RuntimeError(f"Embedding API returned {resp.status_code}")
-
-            data = resp.json()
-            # SiliconFlow returns {"data": [{"embedding": [...], "index": 0}, ...]}
-            items = sorted(data["data"], key=lambda x: x["index"])
-            for item in items:
-                all_embeddings.append(item["embedding"])
+            failures: list[str] = []
+            for attempt in range(max_retries + 1):
+                try:
+                    resp = self._client.post(
+                        self._base_url,
+                        json={"model": self._model, "input": batch},
+                    )
+                    if resp.status_code != 200:
+                        raise RuntimeError(f"Embedding API returned HTTP {resp.status_code}")
+                    data = resp.json()
+                    vectors = self._validate_embedding_response(data, len(batch), spec)
+                    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+                    log_model_attempt(
+                        interaction_name="embedding_generation", attempt=attempt + 1,
+                        model=self._model, status="passed", failures=[],
+                        checks=["count", "index", "dimension", "finite", "non_zero"],
+                        usage=usage, system_prompt="llm_interaction_spec.yaml",
+                        user_prompt="\n---\n".join(batch),
+                        output=f"vectors={len(vectors)}, dimension={len(vectors[0])}",
+                    )
+                    all_embeddings.extend(vectors)
+                    break
+                except Exception as exc:
+                    failure = f"{exc.__class__.__name__}: {exc}"
+                    failures.append(failure)
+                    log_model_attempt(
+                        interaction_name="embedding_generation", attempt=attempt + 1,
+                        model=self._model, status="quality_failed", failures=[failure],
+                        checks=[], usage={}, system_prompt="llm_interaction_spec.yaml",
+                        user_prompt="\n---\n".join(batch), output="",
+                    )
+                    if attempt >= max_retries:
+                        raise RuntimeError(
+                            "Embedding quality gate failed: " + "; ".join(failures)
+                        ) from exc
 
         return all_embeddings
 
@@ -172,21 +237,15 @@ class RAGService:
         try:
             embeddings = self._embedding_fn.encode(chunks)
             docs_to_index = chunks
-        except Exception:
-            # If batch fails (e.g. token limit), try one-by-one and skip problematic chunks
-            logger.warning("Batch embedding failed for %s, falling back to single-chunk encoding",
-                          meta.get("source", "text"))
-            embeddings = []
-            docs_to_index = []
-            for chunk in chunks:
-                try:
-                    emb = self._embedding_fn.encode([chunk])
-                    embeddings.extend(emb)
-                    docs_to_index.append(chunk)
-                except Exception:
-                    logger.warning("Skipping chunk (embedding failed): %.100s...", chunk)
-            if not embeddings:
-                return []
+        except Exception as exc:
+            # encode() already owns the bounded provider/quality retry policy.
+            # Retrying every chunk here would multiply paid calls after a
+            # systemic failure and could also create a silently partial index.
+            logger.error(
+                "Embedding gate failed for %s; indexing aborted without per-chunk fallback: %s",
+                meta.get("source", "text"), exc,
+            )
+            raise
 
         ids = [_make_chunk_id(meta.get("source", ""), meta.get("file_path", ""), i) for i in range(len(embeddings))]
         metadatas = [{**meta, "chunk_index": i, "chunk_total": len(embeddings)} for i in range(len(embeddings))]
@@ -212,7 +271,7 @@ class RAGService:
             return []
 
         from app.utils.markdown_cleaner import clean_to_markdown_sync
-        cleaned = clean_to_markdown_sync(text)
+        cleaned = await asyncio.to_thread(clean_to_markdown_sync, text)
         if not cleaned:
             return []
 
@@ -513,14 +572,20 @@ class RAGService:
     def _get_stats_sync(self) -> dict:
         try:
             count = self._collection.count()
-            result = self._collection.get(include=["metadatas"])
             unique_docs = set()
-            if result and result.get("metadatas"):
-                for m in result["metadatas"]:
+            batch_size = 5000
+            for offset in range(0, count, batch_size):
+                result = self._collection.get(
+                    include=["metadatas"],
+                    limit=batch_size,
+                    offset=offset,
+                )
+                for m in (result or {}).get("metadatas") or []:
                     if m and m.get("doc_id"):
                         unique_docs.add(m["doc_id"])
             return {"status": "ready", "total_chunks": count, "unique_docs": len(unique_docs)}
         except Exception:
+            logger.warning("Failed to collect RAG stats", exc_info=True)
             return {"status": "error", "total_chunks": 0, "unique_docs": 0}
 
     async def get_stats(self) -> dict:

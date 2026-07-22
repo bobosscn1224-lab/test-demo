@@ -64,7 +64,9 @@ class SkillSessionHelper:
         """Write to memory + DB."""
         stage = data.get("stage", "")
         self.cache[session_id] = data
-        db_data = {k: v for k, v in data.items() if k != "content"}
+        # Restored sessions must retain the same business context as memory.
+        # Keeping only content_length broke follow-up questions after restart.
+        db_data = dict(data)
         db_data["content_length"] = len(data.get("content") or "")
         try:
             await session_store.set(session_id, self.skill_name, stage, db_data)

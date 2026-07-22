@@ -155,13 +155,15 @@ class ImageGenSkill(BaseSkill):
         output_path = os.path.join(_OUTPUT_DIR, filename)
 
         yield "⏳ 正在调用图片生成服务...\n"
-        result = await generate_image(prompt, output_path, size="1024x1024")
+        result = await generate_image(
+            prompt, output_path, interaction_name="general_image", size="1024x1024",
+        )
 
         if not result.success:
             yield SkillResult(success=False, message=f"生成失败：{result.error}")
             return
 
-        img_url = f"http://localhost:8011/api/skills/download/{filename}"
+        img_url = f"/api/skills/download/{filename}"
         _sessions[sid] = {"stage": "awaiting_action", "last_prompt": prompt, "last_image": output_path}
         await _helper.save(sid, _sessions[sid])
 
@@ -181,11 +183,13 @@ class ImageGenSkill(BaseSkill):
         filename = f"gen_{uuid.uuid4().hex[:8]}.png"
         output_path = os.path.join(_OUTPUT_DIR, filename)
 
-        result = await generate_image(prompt, output_path, size="1024x1024")
+        result = await generate_image(
+            prompt, output_path, interaction_name="general_image", size="1024x1024",
+        )
         if not result.success:
             return SkillResult(success=False, message=f"生成失败：{result.error}")
 
-        img_url = f"http://localhost:8011/api/skills/download/{filename}"
+        img_url = f"/api/skills/download/{filename}"
 
         _sessions[sid] = {"stage": "awaiting_action", "last_prompt": prompt, "last_image": output_path}
         await _helper.save(sid, _sessions[sid])

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import uuid
 import asyncio
@@ -9,6 +11,7 @@ from app.models.persona import Persona
 from app.services.llm_service import llm_service
 from app.services.persona_service import PersonaService, build_system_prompt
 from app.services.user_profile_service import UserProfileService, extract_user_info_from_message
+from app.utils.sensitive_data import redact_sensitive_text
 
 
 def gen_uuid():
@@ -70,7 +73,8 @@ class ChatService:
 
         # Auto-title
         if session.title == "新对话":
-            session.title = user_message[:50] + ("..." if len(user_message) > 50 else "")
+            safe_title = redact_sensitive_text(user_message)
+            session.title = safe_title[:50] + ("..." if len(safe_title) > 50 else "")
 
         # Save user message
         user_msg = ChatMessage(
@@ -111,6 +115,7 @@ class ChatService:
         try:
             mt = persona.config_json.get("max_response_length", 32768)
             async for token in llm_service.stream_chat(
+                interaction_name="chat_response",
                 system_prompt=system_prompt,
                 messages=messages,
                 temperature=persona.config_json.get("temperature", 0.7),

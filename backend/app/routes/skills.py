@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import os
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+import uuid
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.skills import find_skill, SkillContext
 from app.models.skill import SkillExecution
-from app.services._paths import PUBLIC_DIR, UPLOADS_DIR
+from app.services._paths import PUBLIC_DIR, UPLOADS_DIR, WEEKLY_REPORT_DIR
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
 
@@ -42,7 +45,8 @@ async def trigger_skill(
     if file:
         upload_dir = os.path.join("data", "uploads", "skills")
         os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, file.filename or "upload")
+        safe_name = os.path.basename(file.filename or "upload") or "upload"
+        file_path = os.path.join(upload_dir, f"{uuid.uuid4().hex}_{safe_name}")
         content = await file.read()
         with open(file_path, "wb") as f:
             f.write(content)
@@ -88,19 +92,24 @@ async def download_skill_output(file_path: str):
     import urllib.parse
     # Decode URL-encoded path
     file_path = urllib.parse.unquote(file_path)
-    output_dir = str(PUBLIC_DIR)
-    full_path = os.path.normpath(os.path.join(output_dir, file_path))
-    # Security: ensure path stays within output_dir
-    if not full_path.startswith(str(PUBLIC_DIR)):
-        return {"error": "Invalid path"}
-    if not os.path.exists(full_path):
+    output_dir = PUBLIC_DIR.resolve()
+    full_path = (output_dir / file_path).resolve()
+    try:
+        full_path.relative_to(output_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not full_path.is_file():
         # Also try looking for the file directly in data/outputs/
-        fallback = os.path.join(output_dir, os.path.basename(file_path))
-        if os.path.exists(fallback):
+        fallback = (output_dir / os.path.basename(file_path)).resolve()
+        if fallback.is_file():
             full_path = fallback
         else:
-            return {"error": f"File not found: {os.path.basename(file_path)}"}
-    ext = os.path.splitext(full_path)[1].lower()
+            report_fallback = (WEEKLY_REPORT_DIR.resolve() / os.path.basename(file_path)).resolve()
+            if report_fallback.is_file():
+                full_path = report_fallback
+            else:
+                raise HTTPException(status_code=404, detail=f"File not found: {os.path.basename(file_path)}")
+    ext = full_path.suffix.lower()
     media_map = {
         ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         ".md": "text/markdown; charset=utf-8",
@@ -111,8 +120,8 @@ async def download_skill_output(file_path: str):
         ".svg": "image/svg+xml",
     }
     media_type = media_map.get(ext, "application/octet-stream")
-    filename = os.path.basename(full_path)
-    return FileResponse(full_path, filename=filename, media_type=media_type)
+    filename = full_path.name
+    return FileResponse(str(full_path), filename=filename, media_type=media_type)
 
 
 # ══════════════════════════════════════════════════════════════════

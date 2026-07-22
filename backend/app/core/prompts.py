@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import yaml
 from jinja2 import Template

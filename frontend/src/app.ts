@@ -8,6 +8,9 @@ import { renderBatchPptxPage } from './components/BatchPptxPage';
 import { renderReportPage } from './components/ReportPage';
 import { renderImageGenPage } from './components/ImageGenPage';
 import { renderPptMakerPage } from './components/ppt-maker/index';
+import { renderAssetManagePage } from './components/AssetManagePage';
+import { renderVideoGenPage } from './components/VideoGenPage';
+import { renderProModePage } from './components/pro-mode/index';
 import { apiPost } from './services/api';
 
 const panels: Record<string, { el: HTMLElement; render: () => HTMLElement }> = {};
@@ -84,6 +87,9 @@ const PAGE_REGISTRY: Record<string, () => HTMLElement> = {
   report:    renderReportPage,
   'image-gen': renderImageGenPage,
   'ppt-maker': renderPptMakerPage,
+  'asset-manage': renderAssetManagePage,
+  'video-gen': renderVideoGenPage,
+  'pro-mode': renderProModePage,
 };
 
 function switchPage(page: string, contentArea: HTMLElement): void {

@@ -88,6 +88,7 @@ class PromptOptimizer:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="prompt_rule_optimization",
                 system_prompt="你是Prompt优化专家。输出优化后的完整规则文本。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1000,
@@ -120,6 +121,7 @@ class PromptOptimizer:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="prompt_pattern_extraction",
                 system_prompt="你是质量分析专家。识别重复出现的模式。严格返回JSON数组。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=400,
@@ -158,6 +160,7 @@ class PromptOptimizer:
             )
             try:
                 resp = await llm_service.chat(
+                    interaction_name="prompt_suggestion",
                     system_prompt="你是Prompt优化专家。给出具体的修改建议。严格返回JSON。",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=600,

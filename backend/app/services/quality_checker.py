@@ -129,6 +129,7 @@ class QualityChecker:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="quality_scoring",
                 system_prompt="你是输出质量评估专家。严格返回JSON格式。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=600,
@@ -179,6 +180,7 @@ class QualityChecker:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="quality_fix",
                 system_prompt="你是一个内容优化专家。根据反馈改进回答质量。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=4096,

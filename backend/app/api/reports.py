@@ -118,7 +118,7 @@ async def auto_fill(req: AutoFillRequest):
 	- 目标周({}~{})外的日期不输出""".format(req.text[:3000], req.start_date, req.end_date)
     draft_save("default", req.start_date, req.end_date, [[{"period":"","time_start":"","time_end":"","activity":req.text,"result":"用户原文中的完成情况或结果"}]])
     try:
-        resp = await llm_service.chat(system_prompt="你是严格的JSON格式化助手。只输出JSON数组。", messages=[{"role":"user","content":prompt}], max_tokens=2000, temperature=0, thinking={"type":"disabled"})
+        resp = await llm_service.chat(interaction_name="weekly_report_autofill", system_prompt="你是严格的JSON格式化助手。只输出JSON数组。", messages=[{"role":"user","content":prompt}], max_tokens=2000, temperature=0, thinking={"type":"disabled"})
         text = "";
         if resp.content:
             for b in resp.content:
@@ -232,7 +232,7 @@ async def enrich_activities(req: EnrichRequest):
         if acts_without_result:
             prompt = "为以下工作生成完成情况（每条1句，专业简练）：\\n" + "\\n".join(f"- {a.activity}" for a in acts_without_result[:10]) + "\\n\\n输出JSON：[{\"idx\":0,\"result\":\"完成情况\"}]"
             try:
-                resp = await llm_service.chat(system_prompt="你是周报完善助手。", messages=[{"role":"user","content":prompt}], max_tokens=2000, temperature=0.2, thinking={"type":"disabled"})
+                resp = await llm_service.chat(interaction_name="weekly_report_enrichment", system_prompt="你是周报完善助手。", messages=[{"role":"user","content":prompt}], max_tokens=2000, temperature=0.2, thinking={"type":"disabled"})
                 t = ""
                 if resp.content:
                     for b in resp.content:
@@ -266,7 +266,7 @@ async def enrich_activities(req: EnrichRequest):
 输出JSON：[{{"date":"X月X日","period":"上午","time_start":"09:00","time_end":"10:00","activity":"描述","result":"完成情况"}}]"""
 
     try:
-        resp = await llm_service.chat(system_prompt="你是周报完善助手。输出JSON数组。", messages=[{"role":"user","content":prompt}], max_tokens=3000, temperature=0.2, thinking={"type":"disabled"})
+        resp = await llm_service.chat(interaction_name="weekly_report_enrichment", system_prompt="你是周报完善助手。输出JSON数组。", messages=[{"role":"user","content":prompt}], max_tokens=3000, temperature=0.2, thinking={"type":"disabled"})
         t = ""
         if resp.content:
             for b in resp.content:

@@ -9,10 +9,26 @@ import logging
 import os
 import time
 from datetime import datetime
+from app.services.json_store import atomic_write_json
+from app.services._paths import PUBLIC_DIR, WEEKLY_REPORT_DIR
 
 logger = logging.getLogger(__name__)
 
 _INDEX_PATH = os.path.abspath(os.path.join("data", "reports_index.json"))
+
+
+def _existing_paths(record: dict) -> list[str]:
+    """Resolve legacy absolute paths and portable canonical locations."""
+    filename = os.path.basename(str(record.get("filename", "")))
+    candidates = list(record.get("file_paths", []))
+    if filename:
+        candidates.extend([str(PUBLIC_DIR / filename), str(WEEKLY_REPORT_DIR / filename)])
+    existing: list[str] = []
+    for path in candidates:
+        absolute = os.path.abspath(path)
+        if os.path.isfile(absolute) and absolute not in existing:
+            existing.append(absolute)
+    return existing
 
 
 def _load() -> list[dict]:
@@ -28,9 +44,7 @@ def _load() -> list[dict]:
 
 def _save(records: list[dict]) -> None:
     """Save report records to JSON file."""
-    os.makedirs(os.path.dirname(_INDEX_PATH), exist_ok=True)
-    with open(_INDEX_PATH, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
+    atomic_write_json(_INDEX_PATH, records)
 
 
 def add_record(filename: str, sheet_name: str, date_range: str, file_paths: list[str]) -> dict:
@@ -62,7 +76,7 @@ def list_records() -> list[dict]:
     records.sort(key=lambda r: r.get("created_ts", 0), reverse=True)
     # Verify files still exist, mark missing ones
     for r in records:
-        existing = [p for p in r.get("file_paths", []) if os.path.exists(p)]
+        existing = _existing_paths(r)
         r["_missing"] = len(existing) == 0
         r["download_url"] = f"/api/skills/download/{r['filename']}" if existing else ""
     return records
@@ -75,7 +89,7 @@ def delete_record(filename: str) -> tuple[bool, list[str]]:
     new_records = []
     for r in records:
         if r.get("filename") == filename:
-            for p in r.get("file_paths", []):
+            for p in _existing_paths(r):
                 try:
                     if os.path.exists(p):
                         os.remove(p)

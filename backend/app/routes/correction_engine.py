@@ -101,6 +101,7 @@ async def process_correction(
 
     try:
         resp = await llm_service.chat(
+            interaction_name="correction_detection",
             system_prompt="你是对话分析助手。严格返回JSON。",
             messages=[{"role": "user", "content": extract_prompt}],
             max_tokens=400,
@@ -139,6 +140,7 @@ async def process_correction(
 
     try:
         resp2 = await llm_service.chat(
+            interaction_name="correction_validation",
             system_prompt="你是知识校验专家。基于知识库和逻辑推理判断正误。严格返回JSON。",
             messages=[{"role": "user", "content": validate_prompt}],
             max_tokens=500,

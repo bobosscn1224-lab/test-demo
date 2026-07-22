@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from app.services.json_store import atomic_write_json
 
 logger = logging.getLogger(__name__)
 _DIR = os.path.join("data", "report_drafts")
@@ -36,6 +37,5 @@ def load(session_id: str) -> dict:
 def save(session_id: str, start_date: str, end_date: str, days_activities: list[list[dict]]) -> None:
     """Save activities to disk."""
     data = {"start_date": start_date, "end_date": end_date, "days": days_activities}
-    with open(_path(session_id), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    atomic_write_json(_path(session_id), data)
     logger.info("ActivityStore: saved %d activities for %s", sum(len(d) for d in days_activities), session_id)

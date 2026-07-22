@@ -1,11 +1,14 @@
 """Stage: entry menu — choose how to start making the PPT."""
 
+from __future__ import annotations
+
 from app.skills.base import SkillContext, SkillResult
 from ..constants import ENTRY_MENU
 
 
 async def handle(context: SkillContext, session: dict, sessions: dict, session_id: str) -> SkillResult:
     """Parse entry choice and set the appropriate next stage."""
+
     msg = context.user_message.strip()
 
     choice = _parse_choice(msg)

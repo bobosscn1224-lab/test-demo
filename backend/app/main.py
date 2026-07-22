@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import os
@@ -130,11 +132,10 @@ class ImageGenRequest(_PydanticBaseModel):
 async def image_gen_endpoint(req: ImageGenRequest):
     """Generate image via Agnes. Returns {success, image_url, prompt, error}."""
     import asyncio as _asyncio
-    from app.services.image_gen_service import generate_image, ImageGenResult
-    from app.config import settings as _settings
+    from app.services.image_gen_service import generate_image, has_configured_backend
 
-    if not _settings.agnes_api_key:
-        return {"success": False, "error": "Agnes API key not configured"}
+    if not has_configured_backend():
+        return {"success": False, "error": "No image generation backend configured"}
 
     filename = f"gen_{uuid.uuid4().hex[:8]}.png"
     from app.services._paths import PUBLIC_DIR
@@ -142,7 +143,9 @@ async def image_gen_endpoint(req: ImageGenRequest):
     os.makedirs(out_dir, exist_ok=True)
     output_path = os.path.join(out_dir, filename)
 
-    result = await generate_image(req.prompt, output_path, size="1024x1024")
+    result = await generate_image(
+        req.prompt, output_path, interaction_name="general_image", size="1024x1024",
+    )
     if not result.success:
         return {"success": False, "error": result.error}
 
@@ -164,9 +167,14 @@ async def upload_file(file: UploadFile = File(...)):
     from app.services._paths import DATA_DIR
     uploads_dir = DATA_DIR / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
-    ext = os.path.splitext(file.filename)[1] or ".png"
+    safe_name = os.path.basename(file.filename or "upload.png")
+    ext = os.path.splitext(safe_name)[1].lower() or ".png"
+    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(status_code=400, detail="Only PNG, JPG, JPEG, or WEBP images are allowed")
     dest = uploads_dir / f"{uuid.uuid4().hex}{ext}"
-    content = await file.read()
+    content = await file.read(25 * 1024 * 1024 + 1)
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image exceeds the 25 MB upload limit")
     dest.write_bytes(content)
     return {"path": str(dest.resolve()), "filename": file.filename}
 
@@ -177,14 +185,15 @@ async def restart_server():
     import subprocess, sys
     from app.services._paths import BACKEND_DIR
     backend_dir = str(BACKEND_DIR)
+    port = str(app_settings.port)
 
     restart_script = (
         "import os, sys, subprocess, time, shutil\n"
         "time.sleep(1)\n"
-        "# Kill all uvicorn on port 8011\n"
+        f"# Kill all uvicorn on port {port}\n"
         "result = subprocess.run(['netstat','-ano'], capture_output=True, text=True)\n"
         "for line in result.stdout.split('\\n'):\n"
-        "    if ':8011' in line and 'LISTENING' in line:\n"
+        f"    if ':{port}' in line and 'LISTENING' in line:\n"
         "        pid = line.strip().split()[-1]\n"
         "        try:\n"
         "            subprocess.run(['taskkill','/F','/PID',pid], capture_output=True)\n"
@@ -204,7 +213,7 @@ async def restart_server():
         "            except: pass\n"
         "# Restart\n"
         "subprocess.Popen(\n"
-        "    [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8011'],\n"
+        f"    [sys.executable, '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', {port!r}],\n"
         "    cwd=backend_dir,\n"
         "    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,\n"
         ")\n"

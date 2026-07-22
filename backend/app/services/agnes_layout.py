@@ -7,8 +7,6 @@ the semantics that pure OCR/OpenCV pipelines lack.
 """
 from __future__ import annotations
 
-import asyncio
-import base64
 import json
 import logging
 import os
@@ -16,17 +14,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-import requests
-
 logger = logging.getLogger(__name__)
 
-AGNES_BASE_URL = os.getenv("AGNES_BASE_URL", "https://apihub.agnes-ai.com/v1")
 AGNES_API_KEY = os.getenv("AGNES_API_KEY", "")
-
-
-def _encode_image_b64(image_path: str) -> str:
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
 
 
 _SYSTEM_PROMPT = """You are an expert slide design analyst. Analyze this slide mockup and return structured JSON.
@@ -133,67 +123,20 @@ async def analyze_layout(
         logger.warning("No Agnes API key available - layout analysis skipped")
         return _empty_layout()
 
-    base64_image = await _read_and_encode(image_path)
-    return await asyncio.to_thread(
-        _call_agnes_sync, key, model, base64_image, timeout
-    )
-
-
-def _call_agnes_sync(
-    api_key: str,
-    model: str,
-    base64_image: str,
-    timeout: float,
-) -> dict[str, Any]:
-    """Synchronous Agnes API call — runs in a thread via asyncio.to_thread."""
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _USER_PROMPT_TEMPLATE},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{base64_image}",
-                            "detail": "high",
-                        },
-                    },
-                ],
-            },
-        ],
-        "temperature": 0.1,
-        "max_tokens": 4096,
-    }
     try:
-        resp = requests.post(
-            f"{AGNES_BASE_URL}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=timeout,
-            proxies={"http": None, "https": None},
+        from app.services.vision_model_service import vision_model_service
+        result = await vision_model_service.analyze(
+            interaction_name="vision_layout_analysis",
+            system_prompt=_SYSTEM_PROMPT,
+            user_prompt=_USER_PROMPT_TEMPLATE,
+            image_path=image_path,
+            api_key=key,
         )
-        if resp.status_code != 200:
-            logger.warning("Agnes API error %s: %s", resp.status_code, resp.text[:500])
-            return _empty_layout()
-        content = resp.json()["choices"][0]["message"]["content"]
-        return _parse_response(content)
-    except requests.RequestException as exc:
-        logger.warning("Agnes API connection error: %s", exc)
+        _validate_and_fix_layout(result)
+        return result
+    except Exception as exc:
+        logger.warning("Agnes gated vision analysis failed: %s", exc)
         return _empty_layout()
-    except (KeyError, IndexError, json.JSONDecodeError) as exc:
-        logger.warning("Agnes API response parse error: %s", exc)
-        return _empty_layout()
-
-
-async def _read_and_encode(image_path: str) -> str:
-    return await asyncio.to_thread(_encode_image_b64, image_path)
 
 
 def _parse_response(content: str) -> dict[str, Any]:

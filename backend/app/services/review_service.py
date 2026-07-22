@@ -124,6 +124,7 @@ class ReviewService:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="review_analysis",
                 system_prompt="你是任务复盘专家。严格返回JSON格式。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1000,

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import json
 import asyncio
@@ -8,18 +9,20 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime
 from app.utils.file_parser import SUPPORTED_EXTENSIONS
 from app.services.rag_service import rag_service
+from app.services._paths import BACKEND_DIR
+from app.services.json_store import atomic_write_json
 
 logger = logging.getLogger(__name__)
 
 SCAN_DEBOUNCE_SECONDS = 2.0
 EXCLUDED_DIRS = {"Backup0928", "BACKUP1225", "backup", "BACKUP", ".git", "__pycache__", "node_modules"}
-ProgressCallback = Callable[[dict], None | Awaitable[None]]
+ProgressCallback = Callable[[dict], "None | Awaitable[None]"]
 
 
 class FileScanner:
     """Scans configured directories and indexes files into the RAG knowledge base."""
 
-    STATE_PATH = os.path.join("data", "scan_state.json")
+    STATE_PATH = BACKEND_DIR / "data" / "scan_state.json"
 
     def __init__(self, watch_dirs: list[str] | None = None):
         self.watch_dirs: list[str] = [os.path.abspath(d) for d in (watch_dirs or []) if os.path.isdir(d)]
@@ -33,8 +36,8 @@ class FileScanner:
     def _load_state(self) -> None:
         """Restore _known_files from persisted scan state."""
         try:
-            if os.path.exists(self.STATE_PATH):
-                with open(self.STATE_PATH, "r", encoding="utf-8") as f:
+            if self.STATE_PATH.exists():
+                with self.STATE_PATH.open("r", encoding="utf-8") as f:
                     data = json.load(f)
                 loaded = data.get("known_files", {})
                 # Validate: only keep files that still exist on disk
@@ -46,18 +49,24 @@ class FileScanner:
                         pass
                 logger.info("Loaded %d known files from scan state (%d still valid)",
                            len(loaded), len(self._known_files))
+        except json.JSONDecodeError as exc:
+            stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            quarantine = self.STATE_PATH.with_name(f"{self.STATE_PATH.name}.corrupt-{stamp}")
+            try:
+                os.replace(str(self.STATE_PATH), str(quarantine))
+                logger.warning("Corrupt scan state moved to %s: %s", quarantine, exc)
+            except OSError:
+                logger.warning("Failed to quarantine corrupt scan state: %s", exc)
         except Exception as exc:
             logger.warning("Failed to load scan state: %s", exc)
 
     def _save_state(self) -> None:
         """Persist _known_files to disk."""
         try:
-            os.makedirs(os.path.dirname(self.STATE_PATH), exist_ok=True)
-            with open(self.STATE_PATH, "w", encoding="utf-8") as f:
-                json.dump({
-                    "known_files": self._known_files,
-                    "last_scan": datetime.utcnow().isoformat(),
-                }, f, ensure_ascii=False)
+            atomic_write_json(self.STATE_PATH, {
+                "known_files": self._known_files,
+                "last_scan": datetime.utcnow().isoformat(),
+            })
         except Exception as exc:
             logger.warning("Failed to save scan state: %s", exc)
 

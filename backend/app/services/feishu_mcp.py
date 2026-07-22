@@ -1,4 +1,7 @@
 """MCP Client for connecting to the Feishu MCP server via SSE transport."""
+
+from __future__ import annotations
+
 import json
 import httpx
 from dataclasses import dataclass

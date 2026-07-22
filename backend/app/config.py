@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./data/chroma_db"
 
     host: str = "0.0.0.0"
-    port: int = 8002
+    port: int = 8001
     cors_origins: list[str] = ["http://localhost:5173"]
 
     watch_dirs: str = "[]"
@@ -47,13 +47,22 @@ class Settings(BaseSettings):
     image_gen_backend: str = "auto"
 
     shiyun_api_key: str = ""
-    shiyun_base_url: str = "https://shiyunapi.com"
+    shiyun_base_url: str = "https://api.tokenriver.cn"
 
     api0029_key: str = ""
     api0029_base_url: str = "https://api.0029.org"
 
     tutujin_api_key: str = ""
+    tutujin_api_key_a: str = ""
+    tutujin_api_key_b: str = ""
+    tutujin_api_key_c: str = ""
+    tutujin_vision_api_key: str = ""
     tutujin_base_url: str = "https://api.tutujin.com"
+    apiyi_api_key: str = ""
+    apiyi_quality: str = "low"
+
+    icover_api_key: str = ""
+    icover_base_url: str = "https://icover.ai"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "allow"}
 

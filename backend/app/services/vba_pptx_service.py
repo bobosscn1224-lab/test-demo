@@ -216,6 +216,7 @@ async def _generate_manifest(image_path: str, analysis: dict) -> dict | None:
 
     try:
         resp = await llm_service.chat(
+            interaction_name="ppt_manifest_generation",
             system_prompt=MANIFEST_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=4096, temperature=0.2, timeout=30,

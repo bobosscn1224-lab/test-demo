@@ -1,3 +1,4 @@
+from __future__ import annotations
 from app.skills.base import BaseSkill, SkillContext, SkillResult
 
 _registry: list[BaseSkill] = []
@@ -78,3 +79,4 @@ register(FeishuDocReaderSkill())
 # ChatAnalyzerSkill removed from registry — extract_user_info_from_message
 # in chat_service handles user profiling automatically in background.
 register(ImageGenSkill())
+

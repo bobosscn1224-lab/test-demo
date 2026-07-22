@@ -1,4 +1,5 @@
 """Weekly report LLM operations — prompt building, generation, parsing."""
+from __future__ import annotations
 
 import json
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 async def call_llm_for_json(prompt: str) -> list[dict]:
     """Call LLM and parse JSON response."""
     response = await llm_service.chat(
+        interaction_name="weekly_report_structuring",
         system_prompt=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=4096,

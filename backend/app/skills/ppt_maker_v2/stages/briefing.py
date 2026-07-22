@@ -1,4 +1,5 @@
 """Stage: briefing — understand PPT goals BEFORE generating outline."""
+from __future__ import annotations
 
 from app.skills.base import SkillContext, SkillResult
 

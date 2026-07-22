@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.llm_service import llm_service
+from app.services.llm_interaction import execute_with_quality_gate
 from app.skills.ppt_maker_v2.prompts import (
     OUTLINE_SYSTEM, OUTLINE_USER,
     SKELETON_SYSTEM, SKELETON_USER,
@@ -173,6 +174,7 @@ async def generate_outline(
             summary_prompt = MATERIAL_SUMMARY_USER.format(source_text=full_source[:6000])
             logger.info("Material too long (%d chars), running summarization pass", len(full_source))
             summary_resp = await llm_service.chat(
+                interaction_name="material_summarization",
                 system_prompt=MATERIAL_SUMMARY_SYSTEM,
                 messages=[{"role": "user", "content": summary_prompt}],
                 max_tokens=1024,
@@ -259,10 +261,53 @@ async def generate_outline(
 
     # ── Stage: full (default) — generate complete outline ──────────
     else:
+        # Build revision text: mode instruction + user feedback if regenerating
+        revision_text = mode_instruction
+        if body.regenerate and body.feedback and body.feedback.strip():
+            feedback_str = body.feedback.strip()
+            feedback_len = len(feedback_str)
+
+            # Include existing outline so LLM knows what it's modifying
+            existing_context = ""
+            if existing_outline.strip():
+                existing_context = (
+                    f"\n\n━━━ 当前大纲（供参考，需根据修改意见调整或重写）━━━\n"
+                    f"{existing_outline[:3000]}\n"
+                )
+
+            # Distinguish: substantial new content (>200 chars) vs short modification notes
+            if feedback_len > 200:
+                # User provided detailed requirements/background — treat as PRIMARY input
+                revision_text = (
+                    f"{mode_instruction}\n\n"
+                    f"━━━ 用户提供了详细的新要求和背景（这是本次生成的核心输入，必须完整体现）━━━\n"
+                    f"{feedback_str}\n\n"
+                    f"{existing_context}"
+                    f"请将以上「用户提供的新要求和背景」作为大纲生成的核心依据，"
+                    f"结合原有素材和当前大纲的合理部分，重新构建一份全新的大纲。"
+                    f"用户的新要求优先级最高——如果新要求与当前大纲冲突，以新要求为准。"
+                )
+                # Also merge substantial feedback into full_source so it's part of the "资料" section
+                full_source = (
+                    f"## 用户补充的关键要求和背景（优先级最高）\n{feedback_str[:3000]}\n\n"
+                    f"## 原有素材\n{full_source}"
+                )
+            else:
+                # Short modification instructions
+                revision_text = (
+                    f"{mode_instruction}\n\n"
+                    f"━━━ 用户修改意见（必须严格遵循）━━━\n"
+                    f"{feedback_str}\n\n"
+                    f"{existing_context}"
+                    f"请根据以上修改意见重新调整大纲。特别注意用户指出的问题，"
+                    f"确保新生成的大纲解决了这些反馈。"
+                )
+            logger.info("Outline regeneration with feedback (%d chars)", feedback_len)
+
         prompt = OUTLINE_USER.format(
             briefing_text=briefing_text,
             source_text=full_source,
-            revision_text=mode_instruction,
+            revision_text=revision_text,
         )
         need_thinking = (mode == "enhanced") or (len(full_source) > 3000)
         thinking_cfg = (
@@ -289,20 +334,39 @@ async def generate_outline(
             outline_prefix = f"### 第{body.page_index+1}页："
         # skeleton stage: no pre-fill
 
-        resp = await llm_service.chat(
+        # Build briefing context for retry template
+        extra_ctx = {
+            "source_text": source_text[:5000] if source_text else "",
+            "briefing_text": briefing_text if briefing_text else "",
+            "revision_text": revision_text if revision_text else "",
+        }
+
+        result = await execute_with_quality_gate(
+            interaction_name="outline_generation",
             system_prompt=system_prompt,
-            messages=msgs,
-            max_tokens=max_tokens_out,
-            temperature=0.3,  # lower temp = less style drift across pages
-            timeout=600,
+            user_prompt=prompt,
+            llm_service=llm_service,
+            extra_context=extra_ctx,
             thinking=thinking_cfg,
         )
-        # Reconstruct full output: pre-filled prefix + model continuation
-        outline = outline_prefix
-        if resp.content:
-            for block in resp.content:
-                if hasattr(block, "text"):
-                    outline += block.text
+
+        if not result.success:
+            logger.error(
+                "Outline generation quality gate failed: %s (retries=%d, failures=%s)",
+                result.error, result.retries_used, ", ".join(result.quality_failures[-5:]),
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"大纲生成质量检查未通过（重试{result.retries_used}次）：{result.error}",
+            )
+
+        outline = outline_prefix + result.content
+        logger.info(
+            "Outline generation PASSED quality gate: %d checks, %d retries",
+            len(result.checks_passed), result.retries_used,
+        )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("LLM outline generation failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"大纲生成失败：{exc}")

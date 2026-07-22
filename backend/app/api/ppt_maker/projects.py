@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
 from app.services._paths import DATA_DIR
+from app.services.json_store import atomic_write_json
 from app.api.ppt_maker.models import (
     Project, ProjectCreate, ProjectUpdate, ContentAdd,
     VALID_STATUSES, PURPOSE_MAP, AUDIENCE_MAP, SCALE_MAP, STYLE_MAP,
@@ -42,6 +44,8 @@ def _ensure_dir() -> None:
 
 def _file_path(project_id: str) -> str:
     """Get the JSON file path for a project ID."""
+    if not re.fullmatch(r"[0-9a-f]{8}", project_id):
+        raise FileNotFoundError(f"Project '{project_id}' not found")
     return str(PROJECTS_DIR / f"{project_id}.json")
 
 
@@ -56,10 +60,7 @@ def _load(project_id: str) -> dict:
 
 def _save(project_id: str, data: dict) -> None:
     """Save a project dict to its JSON file."""
-    _ensure_dir()
-    path = _file_path(project_id)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    atomic_write_json(_file_path(project_id), data)
 
 
 def _generate_id() -> str:
@@ -80,9 +81,13 @@ def _to_project(data: dict) -> Project:
     """
     outline_text = data.get("outline", "")
 
-    # ── Collages: enrich with download_url ──
+    # ── Collages: enrich with download_url, keep partial batches ──
+    raw_collages = data.get("collages", [])
+    collage_run_id = str(data.get("collage_run_id") or "")
+    if str(data.get("collage_quality_status") or "").startswith("invalid"):
+        raw_collages = []
     collages = []
-    for c in data.get("collages", []):
+    for c in raw_collages:
         c = dict(c)
         if not c.get("download_url") and c.get("filename"):
             c["download_url"] = f"/api/skills/download/{c['filename']}"
@@ -132,12 +137,16 @@ def _to_project(data: dict) -> Project:
         created_at=data.get("created_at", ""),
         updated_at=data.get("updated_at", ""),
         outline=outline_text,
+        outline_mode=data.get("outline_mode", "conservative"),
         selected_collage=data.get("selected_collage", ""),
         image_backend=data.get("image_backend", ""),
         content_text=data.get("content_text", ""),
         content_files=data.get("content_files", []),
         outline_pages=outline_pages,
         collages=collages,
+        collage_run_id=collage_run_id if collages else "",
+        collage_visual_directions=data.get("collage_visual_directions", {}) if collages else {},
+        collage_generation=data.get("collage_generation", {}),
         page_images=page_images,
         pages=legacy_pages,
     )

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.persona import Persona
@@ -81,3 +82,4 @@ def build_system_prompt(
         "config": persona.config_json,
     }
     return render_system_prompt(data, knowledge_context, user_profile, mode)
+

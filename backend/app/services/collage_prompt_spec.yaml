@@ -1,0 +1,294 @@
+# =============================================================================
+# Collage Prompt Specification — SINGLE SOURCE OF TRUTH
+# =============================================================================
+# Every collage image generation prompt sent to gpt-image-2 (via tutujin/etc.)
+# MUST be built from this spec. DO NOT hardcode rules in individual files.
+#
+# When modifying rules: update this file → restart backend → all paths pick it up.
+# =============================================================================
+
+version: "1.5.0"
+description: "PPT collage image generation prompt specification for gpt-image-2"
+
+generation_runtime:
+  required_backend: "apiyi"
+  credential_strategy: "fixed_variant_slots"
+  provider_call_timeout_seconds: 420
+  batch_timeout_seconds: 900
+  max_paid_calls_per_variant: 2
+  retry_cooldown_seconds: 8
+  max_batch_concurrency: 3
+  atomic_batch: true
+  preserve_previous_batch_on_failure: true
+  preserve_passed_variants: true
+  preserve_failed_samples: true
+  vision_backend: "tutujin"
+  vision_model: "gemini-3-pro-thinking"
+  # Tutujin currently lists fallback Gemini models but routes real calls to an
+  # unauthorized/mismatched model. Keep empty until the provider fixes access.
+  vision_fallback_models: []
+  vision_timeout_seconds: 60
+  vision_failure_policy: "manual_confirmation"
+
+# ── Mandatory Grid & Sizing Rules ─────────────────────────────────────────
+# These MUST appear at the TOP of every collage prompt.
+# gpt-image-2 responds best to Chinese + ━━━ structured format.
+# DO NOT change to English — tested, English format causes size drift.
+grid_rules:
+  mandatory:
+    - "拼图必须恰好包含{total_pages}个缩略图——不能多也不能少。当前大纲共{total_pages}页。"
+    - "禁止自行增减页数——大纲有几页就生成几页，不得合并、拆分、跳过或新增页面。"
+    - "每个缩略图的内容必须严格对应下面大纲中该页的标题和要点，不得编造、不得替换。"
+    - "页序必须正确：第1页在左上角，从左到右、从上到下排列。"
+  layout:
+    - "你会收到一张固定网格骨架参考图；必须在原有格位内填充设计，严禁移动、缩放、合并、拆分或删除任何格位。"
+    - "每行固定{columns}个16:9横版缩略图。共{total_pages}个缩略图，{rows}行。"
+    - "整张拼图画布的宽:高必须严格等于{canvas_ratio}，这是{columns}列×{rows}行等尺寸16:9网格的整体比例；不得把网格压入其他比例的画布。"
+    - "单个缩略图的宽:高必须严格等于16:9（1.7778:1）；例如宽480px时高必须为270px。禁止2:1、2.1:1或其他超宽比例。"
+    - "每个缩略图必须占用完全相同的像素宽度和像素高度：第1页 = 第2页 = 第N页，宽高尺寸不得有任何自适应变化。"
+    - "最后一行的缩略图尺寸与前几行完全一致，不满时右侧留空——不得拉伸、裁切或缩小。"
+    - "第{rows}行仍保留{columns}个完整等高网格位；没有页面的位置保持空白，但空白位也必须占用与前面单元格完全相同的宽度和高度。"
+    - "所有缩略图尺寸统一、网格对齐。行间距和列间距均为10-15px。"
+
+# ── Negative Prompts ──────────────────────────────────────────────────────
+# Tell gpt-image-2 explicitly what NOT to do. Negative prompts are highly
+# effective for image generation models — they prevent common failure modes
+# that positive prompts alone can't fully control.
+negative_prompts:
+  - "不要让文字内容多的卡片自动变高——所有卡片高度必须完全一致"
+  - "不要让最后一行的卡片因为数量少而自动变宽——每行不满时右侧留空，不得拉伸、放大或重新排列"
+  - "不要使用自适应/弹性布局（flex/grid-auto）——使用固定网格，每个卡片占据完全相同的像素空间"
+  - "所有卡片的圆角半径、阴影大小、边框粗细必须完全一致，不得有任何差异"
+  - "不要给卡片添加不同的内边距或外边距——所有卡片的间距必须统一"
+  - "不同页面之间不要出现任何尺寸、比例、对齐方式的差异"
+  - "不得自行增减缩略图数量——大纲有几页就生成几个缩略图，一个不多一个不少"
+
+# ── Grid Layout Calculator ─────────────────────────────────────────────────
+grid_layout:
+  columns: 3  # fixed 3-column grid
+  # Rows = ceil(total_pages / columns)
+  # Empty cells in last row = leave blank, do NOT stretch
+
+# ── Visual Directions (A/B/C) ─────────────────────────────────────────────
+# Short hints only — gpt-image-2 designs the actual visual system freely.
+# Each variant pushes in a distinctly different aesthetic direction.
+visual_directions:
+  A:
+    label: "方案A"
+    brief: "沉稳可信的商务风格——浅色基调、数据图表驱动，适合正式严谨的汇报场合。"
+  B:
+    label: "方案B"
+    brief: "现代前瞻的创新风格——大胆色彩对比、视觉冲击力强，适合科技感和创意提案。"
+  C:
+    label: "方案C"
+    brief: "精致高端的品质风格——大面积留白或深色背景、强调质感和记忆点，适合品牌调性强的演示。"
+
+# ─── Shared visual systems for single-page and collage prompts ────────────────
+# One-line character descriptions — gpt-image-2 interprets the aesthetic freely.
+style_systems:
+  professional: "专业严谨的企业风格——清晰可信、数据驱动、适合正式商务场合。"
+  tech: "科技未来感——深色基调、发光元素、前沿氛围，适合技术和创新主题。"
+  minimal: "简约精致——大量留白、温暖中性色调、编辑级排版，适合高端商务场景。"
+  creative: "创意活泼——明亮色彩、大胆表现、年轻活力，适合品牌和营销主题。"
+  bold: "高端大气——深色奢华基调、金色点缀、权威气场，适合战略级演示。"
+
+# ── Content Handling Rules ────────────────────────────────────────────────
+# What to KEEP from the outline when building the image gen prompt:
+content_rules:
+  keep:
+    - "**标题**"         # page titles
+    - "**核心信息**"     # core messages
+    - "**要点**"         # bullet points
+    - "**副标题**"       # subtitles
+    - "**主标题**"       # main titles
+    - "**正文要点**"     # body points
+    - "**结论式标题**"   # conclusion-style titles
+    - "**关键事实与数据**" # key facts
+    - "**核心论点**"     # core arguments
+    - "**叙事风格**"     # narrative style description
+    - "**演示目的**"     # presentation purpose
+    - "**目标受众**"     # target audience
+    - "**关键信息**"     # key messages
+    - "**叙事逻辑链**"   # narrative logic chain
+    - "**钩子设计**"     # hook design
+
+  # What to STRIP from the outline (visual layout directives):
+  strip_patterns:
+    - pattern: '\*\*视觉建议\*\*[：:].*?(?=\n\*\*|\n###|\n第\s*\d+\s*页|\Z)'
+      flags: "DOTALL"
+      description: "视觉建议 multi-line blocks"
+    - pattern: '\*\*画面构思[^*]*\*\*[：:].*?(?=\n\*\*|\n###|\n第\s*\d+\s*页|\Z)'
+      flags: "DOTALL"
+      description: "画面构思 multi-line blocks"
+    - pattern: '\n\s*-\s*\*\*构图\*\*[：:].*?(?=\n|$)'
+      flags: ""
+      description: "构图 single-line directives"
+    - pattern: '\n\s*-\s*\*\*色彩\*\*[：:].*?(?=\n|$)'
+      flags: ""
+      description: "色彩 single-line directives"
+    - pattern: '\n\s*-\s*\*\*图文比例\*\*[：:].*?(?=\n|$)'
+      flags: ""
+      description: "图文比例 single-line directives"
+    - pattern: '\n\s*-\s*\*\*视觉焦点\*\*[：:].*?(?=\n|$)'
+      flags: ""
+      description: "视觉焦点 single-line directives"
+
+  max_chars: 3000  # max outline chars in prompt (prevents overlong prompts)
+
+# ── Prompt Template ───────────────────────────────────────────────────────
+# Chinese + ━━━ format — tested, gpt-image-2 follows this much more reliably
+# than English "designer brief" style.
+prompt_template: |
+  生成一张方案{variant_label}的完整PPT拼图。
+
+  ━━━ 强制约束（不可违反）━━━
+  {grid_rules_mandatory}
+
+  ━━━ 排版约束 ━━━
+  {grid_rules_layout}
+
+  ━━━ 禁止以下行为（负面约束）━━━
+  {negative_prompts}
+
+  ━━━ 项目信息 ━━━
+  {project_context}
+
+  ━━━ 已确认大纲（每个缩略图必须严格对应此内容）━━━
+  {cleaned_outline}
+
+  ━━━ 视觉方向 ━━━
+  {visual_direction}
+
+  输出：方案{variant_label}完整PPT拼图（一张图，{total_pages}个16:9缩略图，{rows}行×{columns}列网格，所有缩略图尺寸完全一致）
+
+# ── Validation Rules ──────────────────────────────────────────────────────
+# Applied BEFORE sending prompt to image generation API.
+validation:
+  pre_generation:
+    - check: "total_pages > 0"
+      error: "Page count must be positive"
+    - check: "len(cleaned_outline) > 50"
+      error: "Cleaned outline too short — content may be missing"
+    - check: "len(prompt) < 8000"
+      error: "Prompt exceeds 8000 chars — may cause API issues"
+
+  post_generation:
+    - check: "os.path.exists(output_path)"
+      error: "Output file not created"
+    - check: "os.path.getsize(output_path) > 1000"
+      error: "Output file too small (< 1KB) — likely empty or corrupted"
+
+# ── Regeneration Template ─────────────────────────────────────────────────
+regen_template: |
+  重新生成方案{label}的完整PPT拼图——必须应用以下修改意见。
+
+  ━━━ 强制约束（不可违反）━━━
+  {grid_rules_mandatory}
+
+  ━━━ 排版约束 ━━━
+  {grid_rules_layout}
+
+  ━━━ 禁止以下行为（负面约束）━━━
+  {negative_prompts}
+
+  ━━━ 修改意见（必须严格应用）━━━
+  {modifications}
+
+  ━━━ 项目信息 ━━━
+  {project_context}
+
+  ━━━ 已确认大纲 ━━━
+  {cleaned_outline}
+
+  ━━━ 视觉方向 ━━━
+  {visual_direction}
+
+  输出：方案{label}完整PPT拼图（一张图，{total_pages}个16:9缩略图，{rows}行×{columns}列网格）
+
+# ─── Paid image-model quality gates ─────────────────────────────────────
+# The image boundary loads this section for every paid generation backend.
+image_interactions:
+  _defaults:
+    max_retries: 1
+    min_prompt_chars: 8
+    max_prompt_chars: 8000
+    min_file_bytes: 10000
+    min_width: 512
+    min_height: 512
+    aspect_tolerance: 0.16
+    min_luminance_stddev: 8.0
+    vision_review: true
+    vision_review_required: true
+    prompt_requirements:
+      - "只生成一张完整图片，不返回解释、设计说明、JSON 或多张候选图。"
+      - "严格遵守画面内容、构图、风格、文字和尺寸要求，不擅自替换主题。"
+    retry_template: |
+      ━━━ 上一版质量检查未通过，必须修复 ━━━
+      {failures}
+      请重新生成完整图片，并逐项修复以上问题。原始要求仍然全部有效。
+
+  general_image:
+    description: "通用文生图。"
+    prompt_requirements:
+      - "主体、环境、动作、视角、风格和光线必须与用户描述一致。"
+      - "如果画面包含文字，文字必须真实、清晰、无乱码。"
+    vision_review_prompt: |
+      你是独立的图像质量审查员。对照原始生成要求检查图片，不要因为画面美观就放宽要求。
+
+      原始要求：
+      {prompt}
+
+      必须检查：主体和场景是否匹配、构图是否完整、是否存在明显畸形/重影/乱码、画面是否可直接交付。
+      只返回 JSON：
+      {{"passed":true,"score":90,"failures":[],"feedback":"可交付"}}
+      passed 只有在 score>=80 且没有实质缺陷时才能为 true。
+
+  ppt_collage:
+    description: "根据已确认大纲生成的完整固定网格 PPT 拼图。"
+    min_prompt_chars: 200
+    aspect_tolerance: 0.50
+    vision_review: false
+    grid_geometry:
+      enabled: false
+      on_detection_failure: "reject"
+      enforcement: "diagnostic_only"
+    prompt_requirements:
+    vision_review_prompt: |
+      你是严格的 PPT 拼图验收员。请逐项核对生成图与规格。
+
+      期望页数：{expected_pages}
+      期望列数：{columns}
+      已确认页面标题/内容摘要：
+      {outline}
+
+      原始生成 Prompt：
+      {prompt}
+
+      必须检查：
+      1. 缩略图恰好 {expected_pages} 个，不能多也不能少；
+      2. 从左到右、从上到下页序正确；
+      3. 所有缩略图占用完全一致的像素宽高，单格均为 16:9，最后一行不拉伸；
+      4. 页面标题和主题与大纲逐页对应；
+      5. 中文无明显乱码，画面没有截断、重叠或空白页。
+      6. 三个方案的视觉方向不能只是换色；当前方案内部的字体层级、色彩、背景、图标、卡片、页脚和页码必须统一。
+
+      只返回 JSON：
+      {{"passed":true,"score":90,"failures":[],"feedback":"可交付"}}
+      任一强制项失败时 passed 必须为 false，并在 failures/feedback 给出可执行修改。
+
+  ppt_slide:
+    description: "一张独立的 16:9 PPT 幻灯片图片。"
+    min_prompt_chars: 80
+    aspect_tolerance: 0.08
+    prompt_requirements:
+      - "输出只能是一页 16:9 幻灯片，不得输出拼图、边框外说明或多页面。"
+      - "页面标题、正文、页码和视觉系统必须与确认内容一致。"
+    vision_review_prompt: |
+      你是严格的单页 PPT 视觉稿验收员。对照 Prompt 检查图片是否为单张 16:9 幻灯片、内容完整、文字可读、无乱码、无拼图或额外说明。
+
+      原始要求：
+      {prompt}
+
+      只返回 JSON：
+      {{"passed":true,"score":90,"failures":[],"feedback":"可交付"}}
+      score<80 或存在内容缺失、乱码、裁切、畸形时 passed 必须为 false。

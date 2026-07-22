@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 import re
-import subprocess
 import uuid
 
 from app.config import settings
@@ -531,7 +530,7 @@ class PPTMakerSkill(BaseSkill):
         if not results:
             return SkillResult(success=False, message="PRECISE 重建失败：\n- " + "\n- ".join(filter(None, errors)))
 
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         lines = [f"## PRECISE 精确重建完成 ({PIPELINE_VERSION})", ""]
         for idx, r in enumerate(results):
             dl = f"{base_url}/api/skills/download/{r['filename']}"
@@ -562,7 +561,7 @@ class PPTMakerSkill(BaseSkill):
             "outputs"))
         r = await run_layout(image_paths[0], output_dir=output_dir, session_id=session_id, enable_shapes=True)
         if not r: return SkillResult(success=False, message="Layout 重建失败。")
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r['filename']}"
         msg = (f"## Layout 重建完成\n\n📥 [下载 PPTX]({dl})\n📂 `{r.get('path','')}`\n"
                f"- 文字 {r.get('text_items',0)} | 形状 {r.get('native_shapes',0)} | 图片 {r.get('image_items',0)}\n"
@@ -575,7 +574,7 @@ class PPTMakerSkill(BaseSkill):
         r = await generate_pptx(image_paths[0], session_id=session_id, output_dir=os.path.join("data","outputs"), timeout=300)
         if not r or "error" in r:
             return SkillResult(success=False, message=f"Codex 生成失败：{r.get('error','未知错误') if r else '生成失败'}")
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r.get('filename','output.pptx')}"
         return SkillResult(success=True, message=f"## Codex AI PPTX\n\n📥 [下载]({dl})\n- {r.get('size',0)//1024} KB", data={"skill": self.name, "download_url": dl, "stage": "completed"})
 
@@ -590,7 +589,7 @@ class PPTMakerSkill(BaseSkill):
         r = await reconstruct(image_paths[0], session_id=session_id, output_dir=output_dir,
                               agnes_api_key=s.agnes_api_key, render_preview=True, max_calibration_passes=2)
         if r.get("error"): return SkillResult(success=False, message=f"Agnes 失败：{r['error']}")
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r['filename']}"
         rep = r.get("report", {})
         ag = rep.get("agnes", {})
@@ -611,7 +610,7 @@ class PPTMakerSkill(BaseSkill):
             "outputs"))
         r = await convert_image_to_pptx(image_paths[0], session_id=session_id, output_dir=output_dir)
         if r.get("error"): return SkillResult(success=False, message=f"DeckWeaver 失败：{r['error']}")
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r['filename']}"
         rep = r.get("report", {})
         msg = (f"## DeckWeaver 原生布局 ({PIPELINE_VERSION})\n\n"
@@ -635,7 +634,7 @@ class PPTMakerSkill(BaseSkill):
             errs = "\n".join(f"- {e['page']}: {e['error']}" for e in r.get("errors", [])[:5])
             return SkillResult(success=False, message=f"批量转换失败：\n{errs}")
 
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r['filename']}"
         pages_done = r.get("page_count", 0)
         pages_total = r.get("total_pages", 0)
@@ -662,7 +661,7 @@ class PPTMakerSkill(BaseSkill):
         from app.services.vba_pptx_service import analyze_and_generate_vba
         r = await analyze_and_generate_vba(image_paths[0], session_id=session_id, output_dir=os.path.join("data","outputs"))
         if not r: return SkillResult(success=False, message="VBA 生成失败。")
-        base_url = f"http://localhost:{settings.port}" if hasattr(settings, 'port') else "http://localhost:8011"
+        base_url = f"http://localhost:{settings.port}"
         dl = f"{base_url}/api/skills/download/{r.get('filename','output.bas')}"
         return SkillResult(success=True, message=f"## VBA 宏代码\n\n📥 [下载]({dl})\n在 PowerPoint 中 Alt+F11 导入并运行。", data={"skill": self.name, "download_url": dl, "stage": "completed"})
 
@@ -737,6 +736,7 @@ class PPTMakerSkill(BaseSkill):
 """.strip()
         try:
             response = await llm_service.chat(
+                interaction_name="outline_generation",
                 system_prompt=system_prompt,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=8192,
@@ -784,20 +784,17 @@ class PPTMakerSkill(BaseSkill):
         return env
 
     def _visual_prompts(self, outline: str) -> list[tuple[str, str]]:
-        compact_outline = outline[:9000]
-        base = f"""
-Create one complete collage image for a professional business PowerPoint deck.
-The collage must include every slide thumbnail in the confirmed order. Each thumbnail is a 16:9 horizontal PPT slide.
-Do not create a PPTX file and do not create separate single-slide images.
-Use only the confirmed outline and slide-by-slide content below.
-
-Confirmed outline:
-{compact_outline}
-""".strip()
+        from app.services.collage_prompt_spec import build_collage_prompt, strip_visual_suggestions
+        cleaned = strip_visual_suggestions(outline)
+        page_count = len(dict.fromkeys(re.findall(r'第\s*(\d+)\s*页', cleaned))) or 8
         return [
-            ("A", base + "\n\nVisual direction A: premium strategy consulting report, bright background, precise grid, restrained accent colors."),
-            ("B", base + "\n\nVisual direction B: advanced technology keynote, deep clean background, luminous data accents, high-end AI atmosphere."),
-            ("C", base + "\n\nVisual direction C: refined editorial business deck, sophisticated image use, generous whitespace, elegant information blocks."),
+            (label, build_collage_prompt(
+                total_pages=page_count,
+                cleaned_outline=cleaned,
+                variant_label=label,
+                project_context="应用场景：正式商业汇报\n目标受众：管理层\n视觉风格：专业严谨",
+            ))
+            for label in ("A", "B", "C")
         ]
 
     async def _run_step2_visual_collages(self, session_id: str, outline: str):
@@ -808,10 +805,7 @@ Confirmed outline:
             yield item
 
     async def _generate_visual_collages(self, session_id: str, outline: str):
-        exe = self._imagegen_exe()
-        if not exe:
-            yield SkillResult(success=False, message="第二步出错了：未找到 imagegen 图片生成工具。")
-            return
+        exe = None  # retained only for the legacy method signature
         output_dir = str(PUBLIC_DIR)
         os.makedirs(output_dir, exist_ok=True)
         run_id = uuid.uuid4().hex[:10]
@@ -822,7 +816,12 @@ Confirmed outline:
             filename = f"ppt_maker_{session_id[:8]}_{run_id}_{label.lower()}.png"
             out_path = os.path.join(output_dir, filename)
             yield f"进度 4/4：正在生成方案 {label} 的完整 PPT 拼图（{index}/3）...\n"
-            result = await self._run_imagegen(exe, prompt, out_path, timeout=420)
+            page_count = len(dict.fromkeys(re.findall(r'第\s*(\d+)\s*页', outline))) or 8
+            result = await self._run_imagegen(
+                exe, prompt, out_path, timeout=420,
+                interaction_name="ppt_collage",
+                validation_context={"expected_pages": page_count, "columns": 3, "outline": outline},
+            )
             if result:
                 yield SkillResult(success=False, message=f"第二步出错了：方案 {label} 未能正常生成。\n\n{result}")
                 return
@@ -851,40 +850,25 @@ Confirmed outline:
             data={"skill": self.name, "stage": "awaiting_visual_choice", "visual_collages": generated},
         )
 
-    async def _run_imagegen(self, exe: str, prompt: str, out_path: str, timeout: int) -> str | None:
-        """Generate image via ruizhi-imagegen CLI, with API fallback on failure."""
-        # ── Primary: ruizhi-imagegen CLI ──
-        if exe and os.path.exists(exe):
-            try:
-                completed = await asyncio.to_thread(
-                    subprocess.run,
-                    [exe, "generate", "--prompt", prompt, "--out", out_path,
-                     "--quality", "high", "--size", "auto", "--force"],
-                    capture_output=True,
-                    text=True, encoding="utf-8", errors="replace",
-                    timeout=timeout,
-                    env=self._imagegen_env(),
-                )
-            except subprocess.TimeoutExpired:
-                pass  # fall through to fallback
-            except Exception:
-                pass  # fall through to fallback
-            else:
-                if completed.returncode == 0 and os.path.exists(out_path):
-                    return None  # success
-
-        # ── Fallback: unified image_gen_service (Agnes / OpenAI / Ruizhi API) ──
-        logger.info("PPT maker: CLI failed or unavailable, falling back to image_gen_service")
+    async def _run_imagegen(
+        self, exe: str, prompt: str, out_path: str, timeout: int,
+        interaction_name: str = "ppt_slide", validation_context: dict | None = None,
+    ) -> str | None:
+        """Generate only through the unified paid-image quality gate."""
         try:
-            from app.services.image_gen_service import generate_image, ImageGenResult
+            from app.services.image_gen_service import generate_image
 
             os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-            result = await generate_image(prompt, out_path, size="1792x1024")
+            result = await generate_image(
+                prompt, out_path, interaction_name=interaction_name,
+                validation_context=validation_context,
+                size="1792x1024",
+            )
             if result.success:
-                return None  # success
-            return f"CLI 和 API 均失败。API 错误: {result.error}"
+                return None
+            return result.error
         except Exception as exc:
-            return f"图片生成失败（CLI 不可用 + API 异常）: {exc}"
+            return f"图片生成失败：{exc}"
 
     def _parse_visual_choice(self, msg: str) -> str | None:
         compact = msg.strip().upper().replace(" ", "")
@@ -1101,7 +1085,11 @@ CRITICAL RULES:
 
             yield f"正在生成第 {idx}/{total} 页单页 PPT 视觉稿...\n"
             await asyncio.sleep(0.1)
-            error = await self._run_imagegen(exe, prompt, out_path, timeout=420)
+            error = await self._run_imagegen(
+                exe, prompt, out_path, timeout=420,
+                interaction_name="ppt_slide",
+                validation_context={"page": idx, "expected_aspect": 16 / 9},
+            )
             if error:
                 yield SkillResult(
                     success=False,

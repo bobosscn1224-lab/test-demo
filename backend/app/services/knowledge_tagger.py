@@ -99,6 +99,7 @@ class KnowledgeTagger:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="knowledge_tagging",
                 system_prompt="你是企业知识管理专家。严格返回JSON格式的标签。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
@@ -149,6 +150,7 @@ class KnowledgeTagger:
         )
         try:
             resp = await llm_service.chat(
+                interaction_name="knowledge_tagging",
                 system_prompt="你是企业知识管理专家。严格返回JSON格式的标签。",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,

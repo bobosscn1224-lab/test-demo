@@ -1,5 +1,7 @@
 """Stage: outline generation, confirmation, and direct outline input."""
 
+from __future__ import annotations
+
 from app.skills.base import SkillContext, SkillResult
 from app.services.llm_service import llm_service
 from app.utils.file_parser import parse_file_sync
@@ -10,6 +12,7 @@ from . import collage, briefing as briefing_stage
 
 async def handle_briefing_confirm(context: SkillContext, session: dict, sessions: dict, session_id: str) -> SkillResult:
     """User confirmed/rejected the briefing summary."""
+
     msg = context.user_message.strip()
 
     if _is_confirm(msg):
@@ -116,6 +119,7 @@ async def _generate_outline(session_id: str, source: str, sessions: dict, revisi
 
     try:
         resp = await llm_service.chat(
+            interaction_name="outline_generation",
             system_prompt=OUTLINE_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=8192, temperature=0.3, timeout=180,

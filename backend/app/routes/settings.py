@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 @router.get("")
 async def get_settings():
     import json as _json
-    watch_dirs_raw = os.environ.get("WATCH_DIRS", "[]")
+    watch_dirs_raw = settings.watch_dirs
     try:
         watch_dirs = _json.loads(watch_dirs_raw) if isinstance(watch_dirs_raw, str) else watch_dirs_raw
     except _json.JSONDecodeError:

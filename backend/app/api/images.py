@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.services.image_gen_service import generate_image
+from app.services.image_gen_service import generate_image, list_configured_backends
 from app.services._paths import PUBLIC_DIR, ensure_dirs
 
 logger = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ async def generate(req: ImageGenRequest):
 
     Supports ratio presets (1:1, 16:9, 9:16) and explicit pixel sizes.
     """
-    if not settings.agnes_api_key and not settings.openai_api_key:
-        raise HTTPException(status_code=503, detail="未配置图片生成服务。请设置 AGNES_API_KEY 或 OPENAI_API_KEY。")
+    if not list_configured_backends():
+        raise HTTPException(status_code=503, detail="未配置任何图片生成服务。")
 
     # Resolve size from ratio if specified
     size = req.size
@@ -74,7 +74,9 @@ async def generate(req: ImageGenRequest):
     out_dir = str(PUBLIC_DIR)
     output_path = os.path.join(out_dir, filename)
 
-    result = await generate_image(req.prompt, output_path, size=size)
+    result = await generate_image(
+        req.prompt, output_path, interaction_name="general_image", size=size,
+    )
 
     if not result.success:
         return ImageGenResponse(
@@ -100,13 +102,10 @@ async def generate(req: ImageGenRequest):
 @router.get("/backends")
 async def list_backends():
     """Return configured image generation backends."""
-    backends = []
-    if settings.agnes_api_key:
-        backends.append({"name": "agnes", "model": settings.agnes_model, "status": "available"})
-    if settings.openai_api_key:
-        backends.append({"name": "openai", "status": "available"})
-    if settings.ruizhi_api_key:
-        backends.append({"name": "ruizhi", "status": "available"})
+    backends = [
+        {"name": item["key"], "model": item["model"], "status": item["status"]}
+        for item in list_configured_backends()
+    ]
     if not backends:
         backends.append({"name": "none", "status": "unavailable"})
     return {"backends": backends}

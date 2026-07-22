@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,6 +147,7 @@ async def extract_user_info_from_message(user_message: str, assistant_reply: str
 
     try:
         response = await llm_service.chat(
+            interaction_name="user_profile_extraction",
             system_prompt="你是一个信息提取助手。只提取对话中明确陈述的用户信息，标注重要性。返回严格JSON格式。",
             messages=[{"role": "user", "content": extraction_prompt}],
             max_tokens=500,
